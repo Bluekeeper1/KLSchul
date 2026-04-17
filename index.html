@@ -5,6 +5,13 @@
   <title>Counter</title>
 
   <style>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Counter</title>
+
+  <style>
     body {
       margin: 0;
       height: 100vh;
@@ -15,30 +22,109 @@
     }
 
     #count {
-      font-size: 120vw;
+      font-size: 12vw;
       margin: 0;
       text-align: center;
     }
 
     .buttons {
-      margin-top: 30vh;
+      margin-top: 3vh;
       display: flex;
       gap: 2vw;
       justify-content: center;
     }
 
     button {
-      font-size: 60vw;
-      min-width: 200vw;
-      padding: 10vh 30vw;
+      font-size: 6vw;
+      min-width: 20vw;
+      padding: 1vh 3vw;
       border: none;
-      border-radius: 120px;
+      border-radius: 12px;
       cursor: pointer;
       color: white;
     }
 
     #plus { background: #4CAF50; }
     #minus { background: #f44336; }
+  </style>
+</head>
+
+<body>
+
+  <div style="text-align:center;">
+    <h1 id="count">0</h1>
+
+    <div class="buttons">
+      <button id="plus">+</button>
+      <button id="minus">-</button>
+    </div>
+
+    <audio id="sound" src="click.mp3"></audio>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
+    const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let count = 0;
+
+    const countEl = document.getElementById("count");
+    const sound = document.getElementById("sound");
+
+    async function load() {
+      const { data } = await supabase
+        .from("counter")
+        .select("value")
+        .eq("id", 1)
+        .single();
+
+      count = data.value;
+      countEl.innerText = count;
+    }
+
+    async function update(delta) {
+      const { data } = await supabase
+        .from("counter")
+        .select("value")
+        .eq("id", 1)
+        .single();
+
+      await supabase
+        .from("counter")
+        .update({ value: data.value + delta })
+        .eq("id", 1);
+    }
+
+    document.getElementById("plus").addEventListener("click", () => update(1));
+    document.getElementById("minus").addEventListener("click", () => update(-1));
+
+    supabase
+      .channel("counter-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "counter" },
+        async () => {
+          const { data } = await supabase
+            .from("counter")
+            .select("value")
+            .eq("id", 1)
+            .single();
+
+          count = data.value;
+          countEl.innerText = count;
+        }
+      )
+      .subscribe();
+
+    load();
+  </script>
+
+</body>
+</html>
   </style>
 </head>
 
