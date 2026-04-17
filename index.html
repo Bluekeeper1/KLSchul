@@ -1,67 +1,67 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>Farb Slots</title>
+<title>Color Slots</title>
 
 <style>
 body {
-  margin:0;
-  font-family:sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  height:100vh;
+  margin: 0;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
 }
 
-/* FARBEN */
+/* COLOR SELECT */
 #colors {
-  display:flex;
-  gap:15px;
-  margin-bottom:30px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 25px;
 }
 
 .colorBtn {
-  width:50px;
-  height:50px;
-  border-radius:50%;
-  cursor:pointer;
-  border:4px solid transparent;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
 }
 
 .colorBtn.active {
-  border:4px solid black;
+  border: 3px solid black;
+  transform: scale(1.1);
 }
 
 /* SLOTS */
 #slots {
-  display:grid;
-  grid-template-columns:repeat(2, 120px);
-  gap:25px;
+  display: grid;
+  grid-template-columns: repeat(2, 120px);
+  gap: 20px;
 }
 
 .slot {
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  background:#ddd;
-  cursor:pointer;
-  transition:0.2s;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #ddd;
+  cursor: pointer;
+  transition: 0.2s;
 }
 
 .slot:hover {
-  transform:scale(1.05);
+  transform: scale(1.05);
 }
 </style>
 </head>
 
 <body>
 
-<h2>Farbe wählen</h2>
-
+<h3>Farbe wählen</h3>
 <div id="colors"></div>
 
 <div id="slots"></div>
@@ -79,24 +79,24 @@ const COLORS = ["blue", "red", "green", "yellow", "purple"];
 
 let myColor = localStorage.getItem("color") || null;
 
-const colorContainer = document.getElementById("colors");
-const slotContainer = document.getElementById("slots");
+const colorsEl = document.getElementById("colors");
+const slotsEl = document.getElementById("slots");
 
-/* FARBEN ANZEIGEN */
-function renderColors(usedColors) {
-  colorContainer.innerHTML = "";
+/* =========================
+   COLOR UI
+========================= */
+function renderColors(used) {
+  colorsEl.innerHTML = "";
 
   COLORS.forEach(color => {
     const div = document.createElement("div");
     div.className = "colorBtn";
     div.style.background = color;
 
-    if (color === myColor) {
-      div.classList.add("active");
-    }
+    if (color === myColor) div.classList.add("active");
 
-    // Farbe blockieren wenn vergeben
-    if (usedColors.includes(color) && color !== myColor) {
+    // block wenn benutzt von jemand anderem
+    if (used.includes(color) && color !== myColor) {
       div.style.opacity = "0.3";
       div.style.pointerEvents = "none";
     }
@@ -107,83 +107,84 @@ function renderColors(usedColors) {
       load();
     };
 
-    colorContainer.appendChild(div);
+    colorsEl.appendChild(div);
   });
 }
 
-/* SLOTS LADEN */
+/* =========================
+   LOAD SLOTS
+========================= */
 async function load() {
   const { data, error } = await supabase.from("slots").select("*");
 
   if (error) {
-    console.error(error);
-    alert("Fehler beim Laden!");
+    console.error("LOAD ERROR:", error);
     return;
   }
 
-  if (!data || data.length === 0) {
-    console.warn("Keine Slots vorhanden!");
-    return;
-  }
+  if (!data) return;
 
-  const usedColors = data.map(s => s.color).filter(c => c);
+  const usedColors = data.map(s => s.color).filter(Boolean);
 
   renderColors(usedColors);
 
-  slotContainer.innerHTML = "";
+  slotsEl.innerHTML = "";
 
   data.forEach(slot => {
     const div = document.createElement("div");
     div.className = "slot";
-
     div.style.background = slot.color || "#ddd";
 
-    div.onclick = () => clickSlot(slot, data);
+    div.onclick = () => clickSlot(slot);
 
-    slotContainer.appendChild(div);
+    slotsEl.appendChild(div);
   });
 }
 
-/* KLICK LOGIK */
-async function clickSlot(slot, allSlots) {
+/* =========================
+   CLICK LOGIC (FIXED)
+========================= */
+async function clickSlot(slot) {
   if (!myColor) {
-    alert("Bitte zuerst eine Farbe wählen!");
+    alert("Bitte zuerst Farbe wählen!");
     return;
   }
 
-  const myUsed = allSlots.find(s => s.color === myColor);
+  // aktuelle DB holen (wichtig gegen Konflikte)
+  const { data: latest } = await supabase.from("slots").select("*");
 
-  // wenn ich schon einen anderen Slot habe → block
-  if (myUsed && myUsed.id !== slot.id) {
-    alert("Du hast bereits einen Punkt belegt!");
+  const mySlot = latest.find(s => s.color === myColor);
+
+  // wenn Farbe schon woanders benutzt → block
+  if (mySlot && mySlot.id !== slot.id) {
+    alert("Diese Farbe ist bereits belegt!");
     return;
   }
 
-  // frei → setzen
-  if (!slot.color) {
-    await supabase.from("slots")
-      .update({ color: myColor })
-      .eq("id", slot.id);
-  }
+  // TOGGLE
+  const newColor = slot.color ? null : myColor;
 
-  // eigener → freigeben
-  else if (slot.color === myColor) {
-    await supabase.from("slots")
-      .update({ color: null })
-      .eq("id", slot.id);
-  }
+  const { error } = await supabase
+    .from("slots")
+    .update({ color: newColor })
+    .eq("id", slot.id);
 
-  // fremd → nichts
+  if (error) {
+    console.error("UPDATE ERROR:", error);
+    alert(error.message);
+  }
 }
 
-/* LIVE UPDATES */
+/* =========================
+   REALTIME
+========================= */
 supabase.channel("slots-live")
-.on(
-  "postgres_changes",
-  { event: "UPDATE", schema: "public", table: "slots" },
-  () => load()
-)
-.subscribe();
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "slots" },
+    () => load()
+  )
+  .subscribe();
 
 /* START */
 load();
