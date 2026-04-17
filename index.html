@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Live Counter</title>
+  <title>Supabase Live Counter</title>
 </head>
 
 <body>
@@ -16,7 +16,7 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // 🔑 DEINE SUPABASE DATEN EINTRAGEN
+    // ✅ DEINE SUPABASE DATEN
     const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
     const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
@@ -28,7 +28,7 @@
     const sound = document.getElementById("sound");
 
     // -------------------------
-    // 1. INIT LOAD
+    // INIT LOAD
     // -------------------------
     async function load() {
       const { data, error } = await supabase
@@ -37,42 +37,49 @@
         .eq("id", 1)
         .single();
 
-      if (!error) {
-        count = data.value;
-        countEl.innerText = count;
+      if (error) {
+        console.error("Load error:", error);
+        return;
       }
+
+      count = data.value;
+      countEl.innerText = count;
     }
 
     // -------------------------
-    // 2. UPDATE DB
+    // UPDATE DB
     // -------------------------
-    async function updateValue(newValue) {
+    async function updateDB(newValue) {
       const { error } = await supabase
         .from("counter")
         .update({ value: newValue })
         .eq("id", 1);
 
-      if (error) console.error(error);
+      if (error) {
+        console.error("Update error:", error);
+      }
     }
 
     // -------------------------
-    // 3. BUTTONS
+    // BUTTONS
     // -------------------------
     document.getElementById("plus").addEventListener("click", async () => {
       count++;
-      await updateValue(count);
+      countEl.innerText = count;
+      await updateDB(count);
     });
 
     document.getElementById("minus").addEventListener("click", async () => {
       count--;
-      await updateValue(count);
+      countEl.innerText = count;
+      await updateDB(count);
     });
 
     // -------------------------
-    // 4. REALTIME LISTENER
+    // REALTIME
     // -------------------------
     supabase
-      .channel("counter-channel")
+      .channel("counter-live")
       .on(
         "postgres_changes",
         {
