@@ -11,7 +11,6 @@
       font-family: sans-serif;
     }
 
-    /* Zahl ganz oben zentriert */
     #count {
       position: absolute;
       top: 3vh;
@@ -21,7 +20,6 @@
       margin: 0;
     }
 
-    /* Sync Anzeige */
     #syncStatus {
       position: absolute;
       top: 2vh;
@@ -39,7 +37,6 @@
       background: gray;
     }
 
-    /* Buttons unten */
     #buttons {
       position: absolute;
       bottom: 10vh;
@@ -50,7 +47,7 @@
     }
 
     button {
-      font-size: 30vw;
+      font-size: 10vw;
       padding: 3vh 9vw;
       color: white;
       border: none;
@@ -93,6 +90,7 @@
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let count = 0;
+    let audioUnlocked = false;
 
     const countEl = document.getElementById("count");
     const sound = document.getElementById("sound");
@@ -111,6 +109,18 @@
         dot.style.background = "gray";
         syncText.innerText = "Verbindung wird hergestellt...";
       }
+    }
+
+    function unlockAudio() {
+      if (audioUnlocked) return;
+
+      sound.play()
+        .then(() => {
+          sound.pause();
+          sound.currentTime = 0;
+          audioUnlocked = true;
+        })
+        .catch(() => {});
     }
 
     async function load() {
@@ -144,10 +154,12 @@
     }
 
     document.getElementById("plus").addEventListener("click", () => {
+      unlockAudio();
       updateCounter(1);
     });
 
     document.getElementById("minus").addEventListener("click", () => {
+      unlockAudio();
       updateCounter(-1);
     });
 
@@ -166,7 +178,11 @@
           count = data.value;
           countEl.innerText = count;
 
-          sound.play().catch(() => {});
+          if (audioUnlocked) {
+            sound.currentTime = 0;
+            sound.play().catch(() => {});
+          }
+
           setSync("online");
         }
       )
