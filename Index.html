@@ -1,20 +1,111 @@
-await supabase.from('counter').update({ value: count }).eq('id', 1);
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Live Counter</title>
 
-  document.getElementById("count").innerText = count;
-  document.getElementById("sound").play();
-  document.getElementById("log").innerText = (val > 0 ? "+1" : "-1") + " gedrückt";
-}
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      margin-top: 50px;
+      background: #111;
+      color: white;
+    }
 
-supabase
-  .channel('realtime')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'counter' }, payload => {
-    count = payload.new.value;
+    #count {
+      font-size: 80px;
+      margin: 20px;
+    }
+
+    button {
+      font-size: 30px;
+      margin: 10px;
+      padding: 20px 40px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .plus { background: #2ecc71; }
+    .minus { background: #e74c3c; }
+
+    #log {
+      margin-top: 20px;
+      font-size: 20px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Gemeinsamer Live-Zähler</h1>
+
+<div id="count">0</div>
+
+<button class="plus" onclick="update(1)">+1</button>
+<button class="minus" onclick="update(-1)">-1</button>
+
+<div id="log">Bereit...</div>
+
+<audio id="sound" src="https://www.soundjay.com/buttons/beep-07.wav"></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<script>
+  // 🔴 HIER DEINE DATEN EINTRAGEN
+  const SUPABASE_URL = "https://ollmmbnptcpktgtltzzz.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let count = 0;
+
+  async function load() {
+    let { data, error } = await supabase
+      .from('counter')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (data) {
+      count = data.value;
+      document.getElementById("count").innerText = count;
+    }
+  }
+
+  async function update(val) {
+    count += val;
+
+    await supabase
+      .from('counter')
+      .update({ value: count })
+      .eq('id', 1);
+
     document.getElementById("count").innerText = count;
-    document.getElementById("sound").play();
-  })
-  .subscribe();
 
-load();
+    document.getElementById("log").innerText =
+      (val > 0 ? "+1 gedrückt" : "-1 gedrückt");
+
+    document.getElementById("sound").play();
+  }
+
+  // 🔄 Live Updates für alle
+  supabase
+    .channel('counter-changes')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'counter' },
+      payload => {
+        count = payload.new.value;
+        document.getElementById("count").innerText = count;
+        document.getElementById("sound").play();
+      }
+    )
+    .subscribe();
+
+  load();
 </script>
 
 </body>
