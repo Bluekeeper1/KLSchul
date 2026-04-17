@@ -13,7 +13,7 @@
 
     #count {
       position: absolute;
-      top: 0vh;
+      top: 3vh;
       left: 50%;
       transform: translateX(-50%);
       font-size: 50vw;
@@ -39,7 +39,7 @@
 
     #buttons {
       position: absolute;
-      bottom: 0vh;
+      bottom: 10vh;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -90,7 +90,10 @@
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let count = 0;
+
     let audioUnlocked = false;
+    let soundTimer = null;
+    let lastValue = null;
 
     const countEl = document.getElementById("count");
     const sound = document.getElementById("sound");
@@ -175,15 +178,26 @@
             .eq("id", 1)
             .single();
 
-          count = data.value;
+          const newValue = data.value;
+
+          count = newValue;
           countEl.innerText = count;
 
-          if (audioUnlocked) {
-            sound.currentTime = 0;
-            sound.play().catch(() => {});
-          }
-
           setSync("online");
+
+          // 🔁 nur wenn Wert sich geändert hat
+          if (newValue === lastValue) return;
+          lastValue = newValue;
+
+          // ⏱ debounce 5 Sekunden
+          clearTimeout(soundTimer);
+
+          soundTimer = setTimeout(() => {
+            if (audioUnlocked) {
+              sound.currentTime = 0;
+              sound.play().catch(() => {});
+            }
+          }, 5000);
         }
       )
       .subscribe((status) => {
