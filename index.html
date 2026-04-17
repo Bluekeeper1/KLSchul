@@ -2,51 +2,62 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Supabase Live Counter</title>
+  <title>Counter</title>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: sans-serif;
+    }
+
+    #count {
+      font-size: 12vw;
+      margin: 0;
+      text-align: center;
+    }
+
+    .buttons {
+      margin-top: 3vh;
+      display: flex;
+      gap: 2vw;
+      justify-content: center;
+    }
+
+    button {
+      font-size: 6vw;
+      min-width: 20vw;
+      padding: 1vh 3vw;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      color: white;
+    }
+
+    #plus { background: #4CAF50; }
+    #minus { background: #f44336; }
+  </style>
 </head>
 
-<body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
+<body>
 
   <div style="text-align:center;">
+    <h1 id="count">0</h1>
 
-    <!-- COUNTER -->
-    <h1 id="count" style="font-size:12vw; margin:0;">0</h1>
-
-    <!-- BUTTONS -->
-    <div style="margin-top:3vh; display:flex; gap:2vw; justify-content:center;">
-
-      <button id="plus" style="
-        font-size:6vw;
-        padding:1vh 3vw;
-        background:#4CAF50;
-        color:white;
-        border:none;
-        border-radius:12px;
-        cursor:pointer;
-        min-width:20vw;
-      ">+</button>
-
-      <button id="minus" style="
-        font-size:6vw;
-        padding:1vh 3vw;
-        background:#f44336;
-        color:white;
-        border:none;
-        border-radius:12px;
-        cursor:pointer;
-        min-width:20vw;
-      ">-</button>
-
+    <div class="buttons">
+      <button id="plus">+</button>
+      <button id="minus">-</button>
     </div>
 
     <audio id="sound" src="click.mp3"></audio>
   </div>
 
-  <!-- SUPABASE SCRIPT -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // 🔑 DEINE SUPABASE DATEN
     const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
     const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
@@ -57,97 +68,53 @@
     const countEl = document.getElementById("count");
     const sound = document.getElementById("sound");
 
-    // -------------------------
-    // INIT LOAD
-    // -------------------------
     async function load() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("counter")
         .select("value")
         .eq("id", 1)
         .single();
-
-      if (error) {
-        console.error(error);
-        return;
-      }
 
       count = data.value;
       countEl.innerText = count;
     }
 
-    // -------------------------
-    // UPDATE COUNTER (DB MASTER)
-    // -------------------------
-    async function updateCounter(delta) {
-      const { data, error } = await supabase
+    async function update(delta) {
+      const { data } = await supabase
         .from("counter")
         .select("value")
         .eq("id", 1)
         .single();
 
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      const newValue = data.value + delta;
-
-      const { error: updateError } = await supabase
+      await supabase
         .from("counter")
-        .update({ value: newValue })
+        .update({ value: data.value + delta })
         .eq("id", 1);
-
-      if (updateError) {
-        console.error(updateError);
-      }
     }
 
-    // -------------------------
-    // BUTTONS
-    // -------------------------
-    document.getElementById("plus").addEventListener("click", () => {
-      updateCounter(1);
-    });
+    document.getElementById("plus").addEventListener("click", () => update(1));
+    document.getElementById("minus").addEventListener("click", () => update(-1));
 
-    document.getElementById("minus").addEventListener("click", () => {
-      updateCounter(-1);
-    });
-
-    // -------------------------
-    // REALTIME SYNC
-    // -------------------------
     supabase
       .channel("counter-live")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "counter",
-        },
+        { event: "*", schema: "public", table: "counter" },
         async () => {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from("counter")
             .select("value")
             .eq("id", 1)
             .single();
 
-          if (error) {
-            console.error(error);
-            return;
-          }
-
           count = data.value;
           countEl.innerText = count;
-
-          sound.play().catch(() => {});
         }
       )
       .subscribe();
 
-    // START
     load();
   </script>
+
 </body>
 </html>
