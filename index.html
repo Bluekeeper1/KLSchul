@@ -5,27 +5,57 @@
   <title>Supabase Live Counter</title>
 </head>
 
-<body>
-  <h1 id="count">0</h1>
+<body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
 
-  <button id="plus">+</button>
-  <button id="minus">-</button>
+  <div style="text-align:center;">
 
-  <audio id="sound" src="click.mp3"></audio>
+    <!-- COUNTER -->
+    <h1 id="count" style="font-size:12vw; margin:0;">0</h1>
 
+    <!-- BUTTONS -->
+    <div style="margin-top:3vh; display:flex; gap:2vw; justify-content:center;">
+
+      <button id="plus" style="
+        font-size:6vw;
+        padding:1vh 3vw;
+        background:#4CAF50;
+        color:white;
+        border:none;
+        border-radius:12px;
+        cursor:pointer;
+        min-width:20vw;
+      ">+</button>
+
+      <button id="minus" style="
+        font-size:6vw;
+        padding:1vh 3vw;
+        background:#f44336;
+        color:white;
+        border:none;
+        border-radius:12px;
+        cursor:pointer;
+        min-width:20vw;
+      ">-</button>
+
+    </div>
+
+    <audio id="sound" src="click.mp3"></audio>
+  </div>
+
+  <!-- SUPABASE SCRIPT -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // 🔑 Supabase Daten
+    // 🔑 DEINE SUPABASE DATEN
     const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
     const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    let count = 0;
+
     const countEl = document.getElementById("count");
     const sound = document.getElementById("sound");
-
-    let count = 0;
 
     // -------------------------
     // INIT LOAD
@@ -47,7 +77,7 @@
     }
 
     // -------------------------
-    // UPDATE (DB ist Master)
+    // UPDATE COUNTER (DB MASTER)
     // -------------------------
     async function updateCounter(delta) {
       const { data, error } = await supabase
@@ -85,7 +115,7 @@
     });
 
     // -------------------------
-    // REALTIME (ROBUST)
+    // REALTIME SYNC
     // -------------------------
     supabase
       .channel("counter-live")
@@ -116,9 +146,8 @@
       )
       .subscribe();
 
-    // Start
+    // START
     load();
   </script>
 </body>
-</html>
 </html>
