@@ -1,59 +1,88 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Counter</title>
+  <title>Supabase Live Counter</title>
 
   <style>
     body {
       margin: 0;
       height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
       font-family: sans-serif;
     }
 
+    /* Zahl ganz oben zentriert */
     #count {
-      font-size: 50vw; "12"
+      position: absolute;
+      top: 3vh;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12vw;
       margin: 0;
-      text-align: flex-start;"center"
     }
 
-    .buttons {
-      margin-top: 3vh;
+    /* Sync Anzeige */
+    #syncStatus {
+      position: absolute;
+      top: 2vh;
+      left: 2vw;
+      font-size: 4vw;
+      display: flex;
+      align-items: center;
+      gap: 1vw;
+    }
+
+    #dot {
+      width: 2vw;
+      height: 2vw;
+      border-radius: 50%;
+      background: gray;
+    }
+
+    /* Buttons unten */
+    #buttons {
+      position: absolute;
+      bottom: 8vh;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
       gap: 2vw;
-      justify-content: center;
     }
 
     button {
       font-size: 6vw;
-      min-width: 20vw;
       padding: 1vh 3vw;
+      color: white;
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      color: white;
+      min-width: 20vw;
     }
 
     #plus { background: #4CAF50; }
     #minus { background: #f44336; }
+
   </style>
 </head>
 
 <body>
 
-  <div style="text-align:center;">
-    <h1 id="count">0</h1>
-
-    <div class="buttons">
-      <button id="plus">+</button>
-      <button id="minus">-</button>
-    </div>
-
-    <audio id="sound" src="click.mp3"></audio>
+  <!-- SYNC STATUS -->
+  <div id="syncStatus">
+    <div id="dot"></div>
+    <span id="syncText">connecting...</span>
   </div>
+
+  <!-- COUNTER -->
+  <h1 id="count">0</h1>
+
+  <!-- BUTTONS -->
+  <div id="buttons">
+    <button id="plus">+</button>
+    <button id="minus">-</button>
+  </div>
+
+  <audio id="sound" src="click.mp3"></audio>
 
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
@@ -68,32 +97,59 @@
     const countEl = document.getElementById("count");
     const sound = document.getElementById("sound");
 
+    const dot = document.getElementById("dot");
+    const syncText = document.getElementById("syncText");
+
+    function setSync(status) {
+      if (status === "online") {
+        dot.style.background = "#4CAF50";
+        syncText.innerText = "synced";
+      } else if (status === "offline") {
+        dot.style.background = "#f44336";
+        syncText.innerText = "offline";
+      } else {
+        dot.style.background = "gray";
+        syncText.innerText = "connecting...";
+      }
+    }
+
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("counter")
         .select("value")
         .eq("id", 1)
         .single();
+
+      if (error) return console.error(error);
 
       count = data.value;
       countEl.innerText = count;
     }
 
-    async function update(delta) {
-      const { data } = await supabase
+    async function updateCounter(delta) {
+      const { data, error } = await supabase
         .from("counter")
         .select("value")
         .eq("id", 1)
         .single();
 
+      if (error) return console.error(error);
+
+      const newValue = data.value + delta;
+
       await supabase
         .from("counter")
-        .update({ value: data.value + delta })
+        .update({ value: newValue })
         .eq("id", 1);
     }
 
-    document.getElementById("plus").addEventListener("click", () => update(1));
-    document.getElementById("minus").addEventListener("click", () => update(-1));
+    document.getElementById("plus").addEventListener("click", () => {
+      updateCounter(1);
+    });
+
+    document.getElementById("minus").addEventListener("click", () => {
+      updateCounter(-1);
+    });
 
     supabase
       .channel("counter-live")
@@ -109,12 +165,19 @@
 
           count = data.value;
           countEl.innerText = count;
+
+          sound.play().catch(() => {});
+          setSync("online");
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setSync("online");
+        else if (status === "CLOSED") setSync("offline");
+        else setSync("connecting");
+      });
 
     load();
-  </script> 
+  </script>
 
 </body>
 </html>
