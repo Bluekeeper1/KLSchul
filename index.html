@@ -11,19 +11,13 @@
       height: 100vh;
       width: 100vw;
       font-family: sans-serif;
-
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-
       overflow: hidden;
-    }
 
-    /* COUNTER */
-    #count {
-      font-size: min(50vw, 500px);
-      margin-top: 5vh;
+      display: grid;
+      grid-template-rows: 1fr 2fr 1fr;
+
+      justify-items: center;
+      align-items: center;
     }
 
     /* SYNC STATUS */
@@ -44,16 +38,28 @@
       background: gray;
     }
 
+    /* COUNTER */
+    #count {
+      font-size: min(30vw, 300px);
+      margin: 0;
+      grid-row: 2;
+    }
+
     /* BUTTONS */
     #buttons {
-      margin-bottom: 2vh;
+      grid-row: 3;
+      align-self: end;
+
       display: flex;
       gap: 4vw;
+
+      /* 🔥 HIER steuerst du die Höhe */
+      transform: translateY(-10vh);
     }
 
     button {
-      font-size: min(50vw, 120px);
-      padding: 5vh 6vw;
+      font-size: min(12vw, 120px);
+      padding: 2vh 6vw;
       color: white;
       border: none;
       border-radius: 16px;
@@ -66,11 +72,11 @@
     /* LANDSCAPE OPTIMIERUNG */
     @media (orientation: landscape) {
       #count {
-        font-size: min(15vh, 160px);
+        font-size: min(22vh, 220px);
       }
 
-      button {
-        font-size: min(10vh, 100px);
+      #buttons {
+        transform: translateY(-5vh);
       }
     }
 
@@ -210,7 +216,7 @@
               sound.currentTime = 0;
               sound.play().catch(() => {});
             }
-          }, 5000);
+          }, 2000);
         }
       )
       .subscribe((status) => {
