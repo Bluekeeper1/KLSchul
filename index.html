@@ -12,40 +12,50 @@
   <title>Counter</title>
 
   <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: sans-serif;
-    }
+  body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: sans-serif;
+}
 
-    #count {
-      font-size: 12vw;
-      margin: 0;
-      text-align: center;
-    }
+#count {
+  font-size: clamp(40px, 9vw, 110px);
+  margin: 0;
+  text-align: center;
+}
 
-    .buttons {
-      margin-top: 3vh;
-      display: flex;
-      gap: 2vw;
-      justify-content: center;
-    }
+.buttons {
+  margin-top: 2vh;
+  display: flex;
+  gap: 1.5vw;
+  justify-content: center;
+}
 
-    button {
-      font-size: 6vw;
-      min-width: 20vw;
-      padding: 1vh 3vw;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      color: white;
-    }
+button {
+  font-size: clamp(15px, 3vw, 45px);
+  min-width: clamp(60px, 9vw, 130px);
+  padding: clamp(5px, 1vh, 12px) clamp(10px, 2vw, 30px);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  color: white;
+  transition: transform 0.1s;
+}
 
-    #plus { background: #4CAF50; }
-    #minus { background: #f44336; }
+button:active {
+  transform: scale(0.95);
+}
+
+#plus {
+  background: #4CAF50;
+}
+
+#minus {
+  background: #f44336;
+}
   </style>
 </head>
 
