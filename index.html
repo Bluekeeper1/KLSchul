@@ -14,7 +14,6 @@
 
         display: grid;
         grid-template-rows: auto 1fr auto;
-
         overflow: hidden;
       }
 
@@ -45,16 +44,30 @@
         opacity: 0.7;
       }
 
-      /* COUNTER MITTE */
+      /* REFRESH BUTTON */
+      #refreshBtn {
+        position: absolute;
+        top: 10vh;
+        left: 2vw;
+
+        font-size: clamp(12px, 1.5vw, 18px);
+        padding: 0.5vh 1vw;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #2196f3;
+        color: white;
+      }
+
+      /* COUNTER */
       #count {
         display: flex;
         align-items: center;
         justify-content: center;
-
         font-size: clamp(150px, 10vmin, 220px);
       }
 
-      /* BUTTONS UNTEN */
+      /* BUTTONS */
       #buttons {
         display: flex;
         justify-content: center;
@@ -87,6 +100,9 @@
     <!-- LAST UPDATE -->
     <div id="lastUpdate">letztes update: nie</div>
 
+    <!-- REFRESH BUTTON -->
+    <button id="refreshBtn">↻ aktualisieren</button>
+
     <!-- COUNTER -->
     <h1 id="count">0</h1>
 
@@ -110,15 +126,12 @@
       let audioUnlocked = false;
       let soundTimer = null;
       let lastValue = null;
-
       let lastUpdateTime = null;
 
       const countEl = document.getElementById("count");
       const sound = document.getElementById("sound");
-
       const dot = document.getElementById("dot");
       const syncText = document.getElementById("syncText");
-
       const lastUpdateEl = document.getElementById("lastUpdate");
 
       function setSync(status) {
@@ -159,18 +172,6 @@
         }
       }
 
-      function unlockAudio() {
-        if (audioUnlocked) return;
-
-        sound.play()
-          .then(() => {
-            sound.pause();
-            sound.currentTime = 0;
-            audioUnlocked = true;
-          })
-          .catch(() => {});
-      }
-
       async function load() {
         const { data, error } = await supabase
           .from("counter")
@@ -182,6 +183,9 @@
 
         count = data.value;
         countEl.innerText = count;
+
+        lastUpdateTime = Date.now();
+        updateLastUpdateDisplay();
       }
 
       async function updateCounter(delta) {
@@ -201,14 +205,35 @@
           .eq("id", 1);
       }
 
+      // REFRESH FUNCTION
+      async function refresh() {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        count = data.value;
+        countEl.innerText = count;
+
+        lastUpdateTime = Date.now();
+        updateLastUpdateDisplay();
+      }
+
       document.getElementById("plus").addEventListener("click", () => {
-        unlockAudio();
+        audioUnlocked = true;
         updateCounter(1);
       });
 
       document.getElementById("minus").addEventListener("click", () => {
-        unlockAudio();
+        audioUnlocked = true;
         updateCounter(-1);
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click", () => {
+        refresh();
       });
 
       supabase
@@ -228,9 +253,6 @@
             count = newValue;
             countEl.innerText = count;
 
-            setSync("online");
-
-            // LAST UPDATE TIME SETZEN
             lastUpdateTime = Date.now();
             updateLastUpdateDisplay();
 
@@ -241,7 +263,6 @@
 
             soundTimer = setTimeout(() => {
               if (audioUnlocked) {
-                sound.currentTime = 0;
                 sound.play().catch(() => {});
               }
             }, 2000);
@@ -253,7 +274,6 @@
           else setSync("connecting");
         });
 
-      // LIVE TIMER FÜR "vor X Sekunden"
       setInterval(updateLastUpdateDisplay, 1000);
 
       load();
