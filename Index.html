@@ -1,0 +1,21 @@
+await supabase.from('counter').update({ value: count }).eq('id', 1);
+
+  document.getElementById("count").innerText = count;
+  document.getElementById("sound").play();
+  document.getElementById("log").innerText = (val > 0 ? "+1" : "-1") + " gedrückt";
+}
+
+supabase
+  .channel('realtime')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'counter' }, payload => {
+    count = payload.new.value;
+    document.getElementById("count").innerText = count;
+    document.getElementById("sound").play();
+  })
+  .subscribe();
+
+load();
+</script>
+
+</body>
+</html>
