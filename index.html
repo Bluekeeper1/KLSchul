@@ -13,7 +13,7 @@
         font-family: sans-serif;
 
         display: grid;
-        grid-template-rows: auto  1fr auto;
+        grid-template-rows: auto 1fr auto;
 
         overflow: hidden;
       }
@@ -34,6 +34,15 @@
         height: 12px;
         border-radius: 50%;
         background: gray;
+      }
+
+      /* LAST UPDATE */
+      #lastUpdate {
+        position: absolute;
+        top: 6vh;
+        left: 2vw;
+        font-size: clamp(12px, 1.5vw, 18px);
+        opacity: 0.7;
       }
 
       /* COUNTER MITTE */
@@ -75,6 +84,9 @@
       <span id="syncText">connecting...</span>
     </div>
 
+    <!-- LAST UPDATE -->
+    <div id="lastUpdate">letztes update: nie</div>
+
     <!-- COUNTER -->
     <h1 id="count">0</h1>
 
@@ -99,11 +111,15 @@
       let soundTimer = null;
       let lastValue = null;
 
+      let lastUpdateTime = null;
+
       const countEl = document.getElementById("count");
       const sound = document.getElementById("sound");
 
       const dot = document.getElementById("dot");
       const syncText = document.getElementById("syncText");
+
+      const lastUpdateEl = document.getElementById("lastUpdate");
 
       function setSync(status) {
         if (status === "online") {
@@ -115,6 +131,31 @@
         } else {
           dot.style.background = "gray";
           syncText.innerText = "Verbindung wird hergestellt...";
+        }
+      }
+
+      function updateLastUpdateDisplay() {
+        if (!lastUpdateTime) {
+          lastUpdateEl.innerText = "letztes update: nie";
+          return;
+        }
+
+        const now = Date.now();
+        const diff = Math.floor((now - lastUpdateTime) / 1000);
+
+        if (diff < 5) {
+          lastUpdateEl.innerText = "letztes update: gerade eben";
+        } else if (diff < 60) {
+          lastUpdateEl.innerText = `letztes update: vor ${diff}s`;
+        } else {
+          const date = new Date(lastUpdateTime);
+          lastUpdateEl.innerText =
+            "letztes update: " +
+            date.toLocaleTimeString("de-DE", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            });
         }
       }
 
@@ -189,6 +230,10 @@
 
             setSync("online");
 
+            // LAST UPDATE TIME SETZEN
+            lastUpdateTime = Date.now();
+            updateLastUpdateDisplay();
+
             if (newValue === lastValue) return;
             lastValue = newValue;
 
@@ -207,6 +252,9 @@
           else if (status === "CLOSED") setSync("offline");
           else setSync("connecting");
         });
+
+      // LIVE TIMER FÜR "vor X Sekunden"
+      setInterval(updateLastUpdateDisplay, 1000);
 
       load();
     </script>
