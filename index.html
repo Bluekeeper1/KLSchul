@@ -1,232 +1,214 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Supabase Live Counter</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supabase Live Counter</title>
 
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      width: 100vw;
-      font-family: sans-serif;
-      overflow: hidden;
+    <style>
+      body {
+        margin: 0;
+        height: 20vh;
+        width: 100vw;
+        font-family: sans-serif;
 
-      display: grid;
-      grid-template-rows: 1.5fr 1.8fr 1fr;
+        display: grid;
+        grid-template-rows: auto  1fr auto;
 
-      justify-items: center;
-      align-items: center;
-    }
+        overflow: hidden;
+      }
 
-    /* SYNC STATUS */
-    #syncStatus {
-      position: absolute;
-      top: 2vh;
-      left: 2vw;
-      font-size: min(4vw, 24px);
-      display: flex;
-      align-items: center;
-      gap: 1vw;
-    }
+      /* SYNC STATUS */
+      #syncStatus {
+        position: absolute;
+        top: 2vh;
+        left: 2vw;
+        font-size: clamp(14px, 2vw, 24px);
+        display: flex;
+        align-items: center;
+        gap: 1vw;
+      }
 
-    #dot {
-      width: min(2vw, 12px);
-      height: min(2vw, 12px);
-      border-radius: 50%;
-      background: gray;
-    }
+      #dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: gray;
+      }
 
-    /* COUNTER */
-    #count {
-      font-size: min(90vw, 600px);
-      margin: 0;
-      grid-row: 2;
-    }
-
-    /* BUTTONS */
-    #buttons {
-      grid-row: 3;
-      align-self: end;
-
-      display: flex;
-      gap: 4vw;
-
-      /* 🔥 HIER steuerst du die Höhe */
-      transform: translateY(-20vh);
-    }
-
-    button {
-      font-size: min(12vw, 120px);
-      padding: 2vh 6vw;
-      color: white;
-      border: none;
-      border-radius: 16px;
-      cursor: pointer;
-    }
-
-    #plus { background: #4CAF50; }
-    #minus { background: #f44336; }
-
-    /* LANDSCAPE OPTIMIERUNG */
-    @media (orientation: landscape) {
+      /* COUNTER MITTE */
       #count {
-        font-size: min(22vh, 220px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: clamp(150px, 10vmin, 220px);
       }
 
+      /* BUTTONS UNTEN */
       #buttons {
-        transform: translateY(-5vh);
+        display: flex;
+        justify-content: center;
+        gap: 0vw;
+        padding-bottom: 80vh;
       }
-    }
 
-  </style>
-</head>
-
-<body>
-
-  <!-- SYNC STATUS -->
-  <div id="syncStatus">
-    <div id="dot"></div>
-    <span id="syncText">connecting...</span>
-  </div>
-
-  <!-- COUNTER -->
-  <h1 id="count">0</h1>
-
-  <!-- BUTTONS -->
-  <div id="buttons">
-    <button id="plus">+</button>
-    <button id="minus">-</button>
-  </div>
-
-  <audio id="sound" src="click.mp3"></audio>
-
-  <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
-
-    const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
-    const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    let count = 0;
-
-    let audioUnlocked = false;
-    let soundTimer = null;
-    let lastValue = null;
-
-    const countEl = document.getElementById("count");
-    const sound = document.getElementById("sound");
-
-    const dot = document.getElementById("dot");
-    const syncText = document.getElementById("syncText");
-
-    function setSync(status) {
-      if (status === "online") {
-        dot.style.background = "#4CAF50";
-        syncText.innerText = "verbunden";
-      } else if (status === "offline") {
-        dot.style.background = "#f44336";
-        syncText.innerText = "offline";
-      } else {
-        dot.style.background = "gray";
-        syncText.innerText = "Verbindung wird hergestellt...";
+      button {
+        font-size: clamp(100px, 1vmin, 400px);
+        padding: 1vh 10vw;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        max-width: 50vw;
       }
-    }
 
-    function unlockAudio() {
-      if (audioUnlocked) return;
+      #plus { background: #4CAF50; }
+      #minus { background: #f44336; }
+    </style>
+  </head>
 
-      sound.play()
-        .then(() => {
-          sound.pause();
-          sound.currentTime = 0;
-          audioUnlocked = true;
-        })
-        .catch(() => {});
-    }
+  <body>
+    <!-- SYNC STATUS -->
+    <div id="syncStatus">
+      <div id="dot"></div>
+      <span id="syncText">connecting...</span>
+    </div>
 
-    async function load() {
-      const { data, error } = await supabase
-        .from("counter")
-        .select("value")
-        .eq("id", 1)
-        .single();
+    <!-- COUNTER -->
+    <h1 id="count">0</h1>
 
-      if (error) return console.error(error);
+    <!-- BUTTONS -->
+    <div id="buttons">
+      <button id="plus">+</button>
+      <button id="minus">-</button>
+    </div>
 
-      count = data.value;
-      countEl.innerText = count;
-    }
+    <audio id="sound" src="click.mp3"></audio>
 
-    async function updateCounter(delta) {
-      const { data, error } = await supabase
-        .from("counter")
-        .select("value")
-        .eq("id", 1)
-        .single();
+    <script type="module">
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-      if (error) return console.error(error);
+      const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
+      const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
-      const newValue = data.value + delta;
+      const supabase = createClient(supabaseUrl, supabaseKey);
 
-      await supabase
-        .from("counter")
-        .update({ value: newValue })
-        .eq("id", 1);
-    }
+      let count = 0;
+      let audioUnlocked = false;
+      let soundTimer = null;
+      let lastValue = null;
 
-    document.getElementById("plus").addEventListener("click", () => {
-      unlockAudio();
-      updateCounter(1);
-    });
+      const countEl = document.getElementById("count");
+      const sound = document.getElementById("sound");
 
-    document.getElementById("minus").addEventListener("click", () => {
-      unlockAudio();
-      updateCounter(-1);
-    });
+      const dot = document.getElementById("dot");
+      const syncText = document.getElementById("syncText");
 
-    supabase
-      .channel("counter-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "counter" },
-        async () => {
-          const { data } = await supabase
-            .from("counter")
-            .select("value")
-            .eq("id", 1)
-            .single();
-
-          const newValue = data.value;
-
-          count = newValue;
-          countEl.innerText = count;
-
-          setSync("online");
-
-          if (newValue === lastValue) return;
-          lastValue = newValue;
-
-          clearTimeout(soundTimer);
-
-          soundTimer = setTimeout(() => {
-            if (audioUnlocked) {
-              sound.currentTime = 0;
-              sound.play().catch(() => {});
-            }
-          }, 2000);
+      function setSync(status) {
+        if (status === "online") {
+          dot.style.background = "#4CAF50";
+          syncText.innerText = "verbunden";
+        } else if (status === "offline") {
+          dot.style.background = "#f44336";
+          syncText.innerText = "offline";
+        } else {
+          dot.style.background = "gray";
+          syncText.innerText = "Verbindung wird hergestellt...";
         }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") setSync("online");
-        else if (status === "CLOSED") setSync("offline");
-        else setSync("connecting");
+      }
+
+      function unlockAudio() {
+        if (audioUnlocked) return;
+
+        sound.play()
+          .then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+            audioUnlocked = true;
+          })
+          .catch(() => {});
+      }
+
+      async function load() {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        count = data.value;
+        countEl.innerText = count;
+      }
+
+      async function updateCounter(delta) {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        const newValue = data.value + delta;
+
+        await supabase
+          .from("counter")
+          .update({ value: newValue })
+          .eq("id", 1);
+      }
+
+      document.getElementById("plus").addEventListener("click", () => {
+        unlockAudio();
+        updateCounter(1);
       });
 
-    load();
-  </script>
+      document.getElementById("minus").addEventListener("click", () => {
+        unlockAudio();
+        updateCounter(-1);
+      });
 
-</body>
+      supabase
+        .channel("counter-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "counter" },
+          async () => {
+            const { data } = await supabase
+              .from("counter")
+              .select("value")
+              .eq("id", 1)
+              .single();
+
+            const newValue = data.value;
+
+            count = newValue;
+            countEl.innerText = count;
+
+            setSync("online");
+
+            if (newValue === lastValue) return;
+            lastValue = newValue;
+
+            clearTimeout(soundTimer);
+
+            soundTimer = setTimeout(() => {
+              if (audioUnlocked) {
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+              }
+            }, 5000);
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setSync("online");
+          else if (status === "CLOSED") setSync("offline");
+          else setSync("connecting");
+        });
+
+      load();
+    </script>
+  </body>
 </html>
