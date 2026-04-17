@@ -1,194 +1,282 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="de">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supabase Live Counter</title>
 
-<title>Color Slots</title>
+    <style>
+      body {
+        margin: 0;
+        height: 20vh;
+        width: 100vw;
+        font-family: sans-serif;
 
-<style>
-body {
-  margin: 0;
-  font-family: sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-}
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        overflow: hidden;
+      }
 
-/* COLOR SELECT */
-#colors {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 25px;
-}
+      /* SYNC STATUS */
+      #syncStatus {
+        position: absolute;
+        top: 2vh;
+        left: 2vw;
+        font-size: clamp(14px, 2vw, 24px);
+        display: flex;
+        align-items: center;
+        gap: 1vw;
+      }
 
-.colorBtn {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 3px solid transparent;
-}
+      #dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: gray;
+      }
 
-.colorBtn.active {
-  border: 3px solid black;
-  transform: scale(1.1);
-}
+      /* LAST UPDATE */
+      #lastUpdate {
+        position: absolute;
+        top: 6vh;
+        left: 2vw;
+        font-size: clamp(12px, 1.5vw, 18px);
+        opacity: 0.7;
+      }
 
-/* SLOTS */
-#slots {
-  display: grid;
-  grid-template-columns: repeat(2, 120px);
-  gap: 20px;
-}
+      /* REFRESH BUTTON */
+      #refreshBtn {
+        position: absolute;
+        top: 10vh;
+        left: 2vw;
 
-.slot {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: #ddd;
-  cursor: pointer;
-  transition: 0.2s;
-}
+        font-size: clamp(12px, 1.5vw, 18px);
+        padding: 0.5vh 1vw;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #2196f3;
+        color: white;
+      }
 
-.slot:hover {
-  transform: scale(1.05);
-}
-</style>
-</head>
+      /* COUNTER */
+      #count {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(150px, 10vmin, 220px);
+      }
 
-<body>
+      /* BUTTONS */
+      #buttons {
+        display: flex;
+        justify-content: center;
+        gap: 0vw;
+        padding-bottom: 80vh;
+      }
 
-<h3>Farbe wählen</h3>
-<div id="colors"></div>
+      button {
+        font-size: clamp(100px, 1vmin, 400px);
+        padding: 1vh 10vw;
+        color: white;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        max-width: 50vw;
+      }
 
-<div id="slots"></div>
+      #plus { background: #4CAF50; }
+      #minus { background: #f44336; }
+    </style>
+  </head>
 
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+  <body>
+    <!-- SYNC STATUS -->
+    <div id="syncStatus">
+      <div id="dot"></div>
+      <span id="syncText">connecting...</span>
+    </div>
 
-const supabase = createClient(
-  "https://ollmmbnptcpktgtltzzz.supabase.co",
-  "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1"
-);
+    <!-- LAST UPDATE -->
+    <div id="lastUpdate">letztes update: nie</div>
 
-/* FESTE FARBEN */
-const COLORS = ["blue", "red", "green", "yellow", "purple"];
+    <!-- REFRESH BUTTON -->
+    <button id="refreshBtn">↻ aktualisieren</button>
 
-let myColor = localStorage.getItem("color") || null;
+    <!-- COUNTER -->
+    <h1 id="count">0</h1>
 
-const colorsEl = document.getElementById("colors");
-const slotsEl = document.getElementById("slots");
+    <!-- BUTTONS -->
+    <div id="buttons">
+      <button id="plus">+</button>
+      <button id="minus">-</button>
+    </div>
 
-/* =========================
-   COLOR UI
-========================= */
-function renderColors(used) {
-  colorsEl.innerHTML = "";
+    <audio id="sound" src="click.mp3"></audio>
 
-  COLORS.forEach(color => {
-    const div = document.createElement("div");
-    div.className = "colorBtn";
-    div.style.background = color;
+    <script type="module">
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    if (color === myColor) div.classList.add("active");
+      const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
+      const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
-    // block wenn benutzt von jemand anderem
-    if (used.includes(color) && color !== myColor) {
-      div.style.opacity = "0.3";
-      div.style.pointerEvents = "none";
-    }
+      const supabase = createClient(supabaseUrl, supabaseKey);
 
-    div.onclick = () => {
-      myColor = color;
-      localStorage.setItem("color", color);
+      let count = 0;
+      let audioUnlocked = false;
+      let soundTimer = null;
+      let lastValue = null;
+      let lastUpdateTime = null;
+
+      const countEl = document.getElementById("count");
+      const sound = document.getElementById("sound");
+      const dot = document.getElementById("dot");
+      const syncText = document.getElementById("syncText");
+      const lastUpdateEl = document.getElementById("lastUpdate");
+
+      function setSync(status) {
+        if (status === "online") {
+          dot.style.background = "#4CAF50";
+          syncText.innerText = "verbunden";
+        } else if (status === "offline") {
+          dot.style.background = "#f44336";
+          syncText.innerText = "offline";
+        } else {
+          dot.style.background = "gray";
+          syncText.innerText = "Verbindung wird hergestellt...";
+        }
+      }
+
+      function updateLastUpdateDisplay() {
+        if (!lastUpdateTime) {
+          lastUpdateEl.innerText = "letztes update: nie";
+          return;
+        }
+
+        const now = Date.now();
+        const diff = Math.floor((now - lastUpdateTime) / 1000);
+
+        if (diff < 5) {
+          lastUpdateEl.innerText = "letztes update: gerade eben";
+        } else if (diff < 60) {
+          lastUpdateEl.innerText = `letztes update: vor ${diff}s`;
+        } else {
+          const date = new Date(lastUpdateTime);
+          lastUpdateEl.innerText =
+            "letztes update: " +
+            date.toLocaleTimeString("de-DE", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            });
+        }
+      }
+
+      async function load() {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        count = data.value;
+        countEl.innerText = count;
+
+        lastUpdateTime = Date.now();
+        updateLastUpdateDisplay();
+      }
+
+      async function updateCounter(delta) {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        const newValue = data.value + delta;
+
+        await supabase
+          .from("counter")
+          .update({ value: newValue })
+          .eq("id", 1);
+      }
+
+      // REFRESH FUNCTION
+      async function refresh() {
+        const { data, error } = await supabase
+          .from("counter")
+          .select("value")
+          .eq("id", 1)
+          .single();
+
+        if (error) return console.error(error);
+
+        count = data.value;
+        countEl.innerText = count;
+
+        lastUpdateTime = Date.now();
+        updateLastUpdateDisplay();
+      }
+
+      document.getElementById("plus").addEventListener("click", () => {
+        audioUnlocked = true;
+        updateCounter(1);
+      });
+
+      document.getElementById("minus").addEventListener("click", () => {
+        audioUnlocked = true;
+        updateCounter(-1);
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click", () => {
+        refresh();
+      });
+
+      supabase
+        .channel("counter-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "counter" },
+          async () => {
+            const { data } = await supabase
+              .from("counter")
+              .select("value")
+              .eq("id", 1)
+              .single();
+
+            const newValue = data.value;
+
+            count = newValue;
+            countEl.innerText = count;
+
+            lastUpdateTime = Date.now();
+            updateLastUpdateDisplay();
+
+            if (newValue === lastValue) return;
+            lastValue = newValue;
+
+            clearTimeout(soundTimer);
+
+            soundTimer = setTimeout(() => {
+              if (audioUnlocked) {
+                sound.play().catch(() => {});
+              }
+            }, 2000);
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setSync("online");
+          else if (status === "CLOSED") setSync("offline");
+          else setSync("connecting");
+        });
+
+      setInterval(updateLastUpdateDisplay, 1000);
+
       load();
-    };
-
-    colorsEl.appendChild(div);
-  });
-}
-
-/* =========================
-   LOAD SLOTS
-========================= */
-async function load() {
-  const { data, error } = await supabase.from("slots").select("*");
-
-  if (error) {
-    console.error("LOAD ERROR:", error);
-    return;
-  }
-
-  if (!data) return;
-
-  const usedColors = data.map(s => s.color).filter(Boolean);
-
-  renderColors(usedColors);
-
-  slotsEl.innerHTML = "";
-
-  data.forEach(slot => {
-    const div = document.createElement("div");
-    div.className = "slot";
-    div.style.background = slot.color || "#ddd";
-
-    div.onclick = () => clickSlot(slot);
-
-    slotsEl.appendChild(div);
-  });
-}
-
-/* =========================
-   CLICK LOGIC (FIXED)
-========================= */
-async function clickSlot(slot) {
-  if (!myColor) {
-    alert("Bitte zuerst Farbe wählen!");
-    return;
-  }
-
-  // aktuelle DB holen (wichtig gegen Konflikte)
-  const { data: latest } = await supabase.from("slots").select("*");
-
-  const mySlot = latest.find(s => s.color === myColor);
-
-  // wenn Farbe schon woanders benutzt → block
-  if (mySlot && mySlot.id !== slot.id) {
-    alert("Diese Farbe ist bereits belegt!");
-    return;
-  }
-
-  // TOGGLE
-  const newColor = slot.color ? null : myColor;
-
-  const { error } = await supabase
-    .from("slots")
-    .update({ color: newColor })
-    .eq("id", slot.id);
-
-  if (error) {
-    console.error("UPDATE ERROR:", error);
-    alert(error.message);
-  }
-}
-
-/* =========================
-   REALTIME
-========================= */
-supabase.channel("slots-live")
-  .on(
-    "postgres_changes",
-    { event: "*", schema: "public", table: "slots" },
-    () => load()
-  )
-  .subscribe();
-
-/* START */
-load();
-</script>
-
-</body>
+    </script>
+  </body>
 </html>
