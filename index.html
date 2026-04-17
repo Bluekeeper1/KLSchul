@@ -1,112 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Live Counter</title>
-
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      margin-top: 50px;
-      background: #111;
-      color: white;
-    }
-
-    #count {
-      font-size: 80px;
-      margin: 20px;
-    }
-
-    button {
-      font-size: 30px;
-      margin: 10px;
-      padding: 20px 40px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-
-    .plus { background: #2ecc71; }
-    .minus { background: #e74c3c; }
-
-    #log {
-      margin-top: 20px;
-      font-size: 20px;
-      opacity: 0.8;
-    }
-  </style>
 </head>
 
 <body>
+  <h1 id="count">0</h1>
 
-<h1>Gemeinsamer Live-Zähler</h1>
+  <button id="plus">+</button>
+  <button id="minus">-</button>
 
-<div id="count">0</div>
+  <audio id="sound" src="click.mp3"></audio>
 
-<button class="plus" onclick="update(1)">+1</button>
-<button class="minus" onclick="update(-1)">-1</button>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-<div id="log">Bereit...</div>
+    // 🔑 DEINE SUPABASE DATEN EINTRAGEN
+    const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
+    const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
 
-<audio id="sound" src="https://www.soundjay.com/buttons/beep-07.wav"></audio>
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    let count = 0;
 
-<script>
-  // 🔴 HIER DEINE DATEN EINTRAGEN
-  const SUPABASE_URL = "https://ollmmbnptcpktgtltzzz.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
+    const countEl = document.getElementById("count");
+    const sound = document.getElementById("sound");
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // -------------------------
+    // 1. INIT LOAD
+    // -------------------------
+    async function load() {
+      const { data, error } = await supabase
+        .from("counter")
+        .select("*")
+        .eq("id", 1)
+        .single();
 
-  let count = 0;
-
-  async function load() {
-    let { data, error } = await supabase
-      .from('counter')
-      .select('*')
-      .eq('id', 1)
-      .single();
-
-    if (data) {
-      count = data.value;
-      document.getElementById("count").innerText = count;
-    }
-  }
-
-  async function update(val) {
-    count += val;
-
-    await supabase
-      .from('counter')
-      .update({ value: count })
-      .eq('id', 1);
-
-    document.getElementById("count").innerText = count;
-
-    document.getElementById("log").innerText =
-      (val > 0 ? "+1 gedrückt" : "-1 gedrückt");
-
-    document.getElementById("sound").play();
-  }
-
-  // 🔄 Live Updates für alle
-  supabase
-    .channel('counter-changes')
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'counter' },
-      payload => {
-        count = payload.new.value;
-        document.getElementById("count").innerText = count;
-        document.getElementById("sound").play();
+      if (!error) {
+        count = data.value;
+        countEl.innerText = count;
       }
-    )
-    .subscribe();
+    }
 
-  load();
-</script>
+    // -------------------------
+    // 2. UPDATE DB
+    // -------------------------
+    async function updateValue(newValue) {
+      const { error } = await supabase
+        .from("counter")
+        .update({ value: newValue })
+        .eq("id", 1);
 
+      if (error) console.error(error);
+    }
+
+    // -------------------------
+    // 3. BUTTONS
+    // -------------------------
+    document.getElementById("plus").addEventListener("click", async () => {
+      count++;
+      await updateValue(count);
+    });
+
+    document.getElementById("minus").addEventListener("click", async () => {
+      count--;
+      await updateValue(count);
+    });
+
+    // -------------------------
+    // 4. REALTIME LISTENER
+    // -------------------------
+    supabase
+      .channel("counter-channel")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "counter",
+        },
+        (payload) => {
+          count = payload.new.value;
+          countEl.innerText = count;
+          sound.play().catch(() => {});
+        }
+      )
+      .subscribe();
+
+    // Start
+    load();
+  </script>
 </body>
 </html>
