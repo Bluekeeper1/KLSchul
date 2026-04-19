@@ -23,6 +23,7 @@
         background: #b71c1c;
       }
 
+      /* SYNC */
       #syncStatus {
         position: absolute;
         top: 2vh;
@@ -40,6 +41,7 @@
         background: gray;
       }
 
+      /* LAST UPDATE */
       #lastUpdate {
         position: absolute;
         top: 6vh;
@@ -48,6 +50,7 @@
         opacity: 0.7;
       }
 
+      /* REFRESH */
       #refreshBtn {
         position: absolute;
         top: 10vh;
@@ -66,24 +69,29 @@
         cursor: not-allowed;
       }
 
-      /* 🟡 MAX CONTAINER (20% größer) */
+      /* 🟦 TOP RIGHT PANEL (NEU) */
       #maxContainer {
         position: absolute;
         top: 2vh;
         right: 2vw;
-        text-align: center;
 
-        transform: scale(1.2);
-        transform-origin: top right;
+        background: rgba(20, 20, 20, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 1vh 1vw;
+        text-align: center;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
       }
 
       #maxLabel {
-        font-size: clamp(12px, 1.5vw, 18px);
+        font-size: clamp(12px, 1.2vw, 16px);
         opacity: 0.8;
+        margin-bottom: 0.5vh;
       }
 
       #maxValue {
-        font-size: clamp(50px, 3vw, 30px);
+        font-size: clamp(20px, 2.5vw, 28px);
         margin: 0.5vh 0;
       }
 
@@ -105,6 +113,7 @@
         background: #f44336;
       }
 
+      /* COUNTER */
       #count {
         display: flex;
         align-items: center;
@@ -112,6 +121,7 @@
         font-size: clamp(150px, 100vmin, 200px);
       }
 
+      /* BUTTONS */
       #buttons {
         display: flex;
         justify-content: center;
@@ -148,7 +158,7 @@
     <div id="lastUpdate">letztes update: nie</div>
     <button id="refreshBtn">↻ aktualisieren</button>
 
-    <!-- MAX -->
+    <!-- TOP RIGHT PANEL -->
     <div id="maxContainer">
       <div id="maxLabel">Maximal</div>
       <div id="maxValue">10</div>
@@ -158,8 +168,10 @@
       </div>
     </div>
 
+    <!-- COUNTER -->
     <h1 id="count">0</h1>
 
+    <!-- BUTTONS -->
     <div id="buttons">
       <button id="plus">+</button>
       <button id="minus">-</button>
@@ -176,28 +188,8 @@
       let count = 0;
       let maxValue = 10;
 
-      let lastValue = null;
-      let soundTimer = null;
-      let audioUnlocked = false;
-
       const countEl = document.getElementById("count");
       const maxEl = document.getElementById("maxValue");
-      const sound = document.getElementById("sound");
-      const dot = document.getElementById("dot");
-      const syncText = document.getElementById("syncText");
-
-      function setSync(status) {
-        if (status === "online") {
-          dot.style.background = "#4CAF50";
-          syncText.innerText = "verbunden";
-        } else if (status === "offline") {
-          dot.style.background = "#f44336";
-          syncText.innerText = "offline";
-        } else {
-          dot.style.background = "gray";
-          syncText.innerText = "Verbindung wird hergestellt...";
-        }
-      }
 
       function checkLimit() {
         document.body.classList.toggle("limitReached", count >= maxValue);
@@ -220,8 +212,6 @@
       }
 
       async function updateCounter(delta) {
-        audioUnlocked = true;
-
         const { data } = await supabase
           .from("counter")
           .select("value")
@@ -270,23 +260,9 @@
             maxEl.innerText = maxValue;
 
             checkLimit();
-
-            if (data.value === lastValue) return;
-            lastValue = data.value;
-
-            clearTimeout(soundTimer);
-
-            soundTimer = setTimeout(() => {
-              if (audioUnlocked) {
-                sound.currentTime = 0;
-                sound.play().catch(() => {});
-              }
-            }, 2000);
           }
         )
-        .subscribe(setSync);
-
-      load();
+        .subscribe();
     </script>
   </body>
 </html>
