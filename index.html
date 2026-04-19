@@ -2,8 +2,8 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Supabase Live Counter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Live Counter System</title>
 
 <style>
 body {
@@ -12,14 +12,38 @@ body {
   background: #111;
   color: white;
   overflow: hidden;
-  transition: background 0.3s;
+  position: relative;
 }
 
-body.limitReached {
-  background: #b71c1c;
+/* ================= BACKGROUND ================= */
+#topBar, #bottomBar {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  height: 15vh;
+  z-index: -3;
+  pointer-events: none;
+  transition: background 0.5s ease;
 }
 
-/* SYNC */
+#topBar { top: 0; }
+#bottomBar { bottom: 0; }
+
+/* ================= LIMIT ================= */
+#limitOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(183,28,28,0);
+  z-index: -2;
+  pointer-events: none;
+  transition: 0.3s;
+}
+
+body.limitReached #limitOverlay {
+  background: rgba(183,28,28,0.35);
+}
+
+/* ================= SYNC ================= */
 #syncStatus {
   position: absolute;
   top: 2vh;
@@ -27,7 +51,6 @@ body.limitReached {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: clamp(14px, 2vw, 24px);
 }
 
 #dot {
@@ -37,81 +60,66 @@ body.limitReached {
   background: gray;
 }
 
-/* LAST UPDATE */
+/* ================= LAST UPDATE ================= */
 #lastUpdate {
   position: absolute;
   top: 6vh;
   left: 2vw;
-  font-size: clamp(12px, 1.5vw, 18px);
   opacity: 0.7;
 }
 
-/* REFRESH */
+/* ================= REFRESH ================= */
 #refreshBtn {
   position: absolute;
   top: 10vh;
   left: 2vw;
-  padding: 2vh 2vw;
+  padding: 4vh 4vw;
   border: none;
-  border-radius: 100px;
-  cursor: pointer;
+  border-radius: 200px;
   background: #2196f3;
   color: white;
+  cursor: pointer;
 }
 
 #refreshBtn:disabled {
   opacity: 0.4;
-  cursor: not-allowed;
 }
 
-/* TOP RIGHT PANEL */
+/* ================= MAX ================= */
 #maxContainer {
   position: absolute;
   top: 2vh;
   right: 2vw;
-  background: rgba(30,30,30,0.8);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: rgb(0,153,255);
   border-radius: 12px;
   padding: 1vh 1vw;
   text-align: center;
-  backdrop-filter: blur(8px);
 }
 
-#maxValue {
-  font-size: 30px;
-  margin: 5px 0;
-}
+#maxValue { font-size: 30px; }
 
 #maxButtons button {
-  margin: 2px;
+  margin: 1px;
   border: none;
-  padding: 5px 12px;
-  cursor: pointer;
-  color: white;
+  padding: 4px 10px;
   border-radius: 6px;
+  color: white;
+  cursor: pointer;
 }
 
 #maxPlus { background: #4caf50; }
 #maxMinus { background: #f44336; }
 
-/* COUNTER */
+/* ================= COUNTER ================= */
 #count {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 65vh;
+  height: 70vh;
   font-size: clamp(150px, 100vmin, 200px);
 }
 
-/* INFO TEXT (NEU) */
-#actionInfo {
-  text-align: center;
-  margin-top: -40px;
-  font-size: 20px;
-  opacity: 0.8;
-}
-
-/* BUTTONS */
+/* ================= BUTTONS ================= */
 #buttons {
   display: flex;
   justify-content: center;
@@ -123,47 +131,67 @@ button {
   padding: 10px 60px;
   border: none;
   border-radius: 20px;
-  cursor: pointer;
   color: white;
+  cursor: pointer;
 }
 
 #plus { background: #4caf50; }
 #minus { background: #f44336; }
 
-/* COLOR PICKER (NEU) */
+/* ================= COLOR PICKER ================= */
 #colorPicker {
-  position: absolute;
-  bottom: 2vh;
-  width: 100%;
+  position: fixed;
+  bottom: 1vh;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  justify-content: center;
-  gap: 15px;
+  gap: 12px;
+  z-index: 10;
 }
 
-.colorBtn {
-  width: 50px;
-  height: 50px;
+.colorDot {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 2px solid white;
   cursor: pointer;
+  transition: 0.2s;
 }
 
-.colorBtn.active {
-  border: 3px solid white;
-  transform: scale(1.2);
+.colorDot.active {
+  transform: scale(1.3);
+  box-shadow: 0 0 10px white;
 }
 
-.c1 { background: #2196f3; }
-.c2 { background: #4caf50; }
-.c3 { background: #f44336; }
-.c4 { background: #ff9800; }
-.c5 { background: #9c27b0; }
-.c6 { background: #00bcd4; }
+/* ================= LOG ================= */
+#log {
+  position: absolute;
+  top: 2vh;
+  right: 2vw;
+  width: 280px;
+  font-size: 14px;
+}
 
+.logEntry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.colorBubble {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
 </style>
 </head>
 
 <body>
+
+<div id="topBar"></div>
+<div id="bottomBar"></div>
+<div id="limitOverlay"></div>
 
 <!-- SYNC -->
 <div id="syncStatus">
@@ -171,15 +199,13 @@ button {
   <span id="syncText">connecting...</span>
 </div>
 
-<!-- LAST UPDATE -->
 <div id="lastUpdate">letztes update: nie</div>
 
-<!-- REFRESH -->
 <button id="refreshBtn">↻</button>
 
 <!-- MAX -->
 <div id="maxContainer">
-  <div>Maximal</div>
+  <div>Max</div>
   <div id="maxValue">10</div>
   <div id="maxButtons">
     <button id="maxPlus">+</button>
@@ -187,11 +213,11 @@ button {
   </div>
 </div>
 
+<!-- LOG -->
+<div id="log"></div>
+
 <!-- COUNTER -->
 <div id="count">0</div>
-
-<!-- ACTION INFO (NEU) -->
-<div id="actionInfo">keine Änderung</div>
 
 <!-- BUTTONS -->
 <div id="buttons">
@@ -199,55 +225,106 @@ button {
   <button id="minus">-</button>
 </div>
 
-<!-- COLOR PICKER (NEU) -->
+<!-- COLORS -->
 <div id="colorPicker">
-  <div class="colorBtn c1" data-color="Blau"></div>
-  <div class="colorBtn c2" data-color="Grün"></div>
-  <div class="colorBtn c3" data-color="Rot"></div>
-  <div class="colorBtn c4" data-color="Orange"></div>
-  <div class="colorBtn c5" data-color="Lila"></div>
-  <div class="colorBtn c6" data-color="Türkis"></div>
+  <div class="colorDot" data-color="#ff0000" style="background:#ff0000"></div>
+  <div class="colorDot" data-color="#00ff00" style="background:#00ff00"></div>
+  <div class="colorDot" data-color="#0000ff" style="background:#0000ff"></div>
+  <div class="colorDot" data-color="#ffff00" style="background:#ffff00"></div>
+  <div class="colorDot" data-color="#00ffff" style="background:#00ffff"></div>
+  <div class="colorDot" data-color="#ff00ff" style="background:#ff00ff"></div>
 </div>
-
-<audio id="sound" src="click.mp3"></audio>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
+/* ================= SUPABASE ================= */
 const supabase = createClient(
   "https://ollmmbnptcpktgtltzzz.supabase.co",
   "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1"
 );
 
+/* ================= STATE ================= */
 let count = 0;
 let maxValue = 10;
-let lastValue = null;
-let lastUpdateTime = null;
-let soundTimer = null;
-let audioUnlocked = false;
+let localColor = localStorage.getItem("color") || "#111";
 
-/* COLOR (NEU) */
-let selectedColor = localStorage.getItem("color") || "Blau";
+/* ================= BACKGROUND ================= */
+const topBar = document.getElementById("topBar");
+const bottomBar = document.getElementById("bottomBar");
 
-const actionInfo = document.getElementById("actionInfo");
+function applyColor(c) {
+  topBar.style.background = `linear-gradient(to bottom, ${c}, transparent)`;
+  bottomBar.style.background = `linear-gradient(to top, ${c}, transparent)`;
+}
 
-document.querySelectorAll(".colorBtn").forEach(btn => {
-  if (btn.dataset.color === selectedColor) btn.classList.add("active");
+/* ================= COLOR ================= */
+const dots = document.querySelectorAll(".colorDot");
 
-  btn.onclick = () => {
-    selectedColor = btn.dataset.color;
-    localStorage.setItem("color", selectedColor);
+function setActive(c) {
+  dots.forEach(d => d.classList.toggle("active", d.dataset.color === c));
+}
 
-    document.querySelectorAll(".colorBtn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
+applyColor(localColor);
+setActive(localColor);
+
+dots.forEach(d => {
+  d.onclick = () => {
+    localColor = d.dataset.color;
+    localStorage.setItem("color", localColor);
+    applyColor(localColor);
+    setActive(localColor);
   };
 });
 
-/* ORIGINAL CODE bleibt gleich bis UPDATE */
+/* ================= LIMIT ================= */
+function checkLimit() {
+  document.body.classList.toggle("limitReached", count >= maxValue);
+}
 
-/* UPDATE COUNTER (ERWEITERT) */
-async function updateCounter(delta) {
-  audioUnlocked = true;
+/* ================= LOG ================= */
+function addLog(delta, color) {
+  const log = document.getElementById("log");
+
+  const row = document.createElement("div");
+  row.className = "logEntry";
+
+  const bubble = document.createElement("div");
+  bubble.className = "colorBubble";
+  bubble.style.background = color || "#fff";
+
+  const text = document.createElement("span");
+  text.textContent = `${delta > 0 ? "+" : ""}${delta}`;
+
+  row.appendChild(bubble);
+  row.appendChild(text);
+
+  log.prepend(row);
+
+  if (log.children.length > 10) {
+    log.removeChild(log.lastChild);
+  }
+}
+
+/* ================= LOAD ================= */
+async function load() {
+  const { data } = await supabase
+    .from("counter")
+    .select("*")
+    .eq("id", 1)
+    .single();
+
+  count = data.value;
+  maxValue = data.max_value ?? 10;
+
+  document.getElementById("count").innerText = count;
+  document.getElementById("maxValue").innerText = maxValue;
+
+  checkLimit();
+}
+
+/* ================= UPDATE ================= */
+async function update(delta) {
 
   const { data } = await supabase
     .from("counter")
@@ -255,56 +332,65 @@ async function updateCounter(delta) {
     .eq("id", 1)
     .single();
 
-  const text = `${delta > 0 ? "+" : ""}${delta} von ${selectedColor}`;
+  const newValue = data.value + delta;
 
   await supabase
     .from("counter")
     .update({
-      value: data.value + delta,
-      last_action: text
+      value: newValue,
+      last_delta: delta,
+      last_color: localColor
     })
     .eq("id", 1);
 }
 
-/* REALTIME ERWEITERT */
-supabase
-  .channel("counter-live")
-  .on(
-    "postgres_changes",
-    { event: "*", schema: "public", table: "counter" },
-    (payload) => {
-      const data = payload.new;
+/* ================= MAX ================= */
+async function updateMax(delta) {
 
-      count = data.value;
-      maxValue = data.max_value ?? 10;
+  const { data } = await supabase
+    .from("counter")
+    .select("max_value")
+    .eq("id", 1)
+    .single();
 
-      countEl.innerText = count;
-      maxEl.innerText = maxValue;
+  let m = (data.max_value ?? 10) + delta;
+  if (m < 0) m = 0;
 
-      if (data.last_action) {
-        actionInfo.innerText = data.last_action;
-      }
+  await supabase
+    .from("counter")
+    .update({ max_value: m })
+    .eq("id", 1);
+}
 
-      lastUpdateTime = Date.now();
+/* ================= BUTTONS ================= */
+document.getElementById("plus").onclick = () => update(1);
+document.getElementById("minus").onclick = () => update(-1);
 
-      checkLimit();
-      updateLastUpdate();
+document.getElementById("maxPlus").onclick = () => updateMax(1);
+document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
-      if (count === lastValue) return;
-      lastValue = count;
+/* ================= REALTIME ================= */
+supabase.channel("counter-live")
+  .on("postgres_changes", { event: "*", schema: "public", table: "counter" }, payload => {
 
-      clearTimeout(soundTimer);
+    const d = payload.new;
 
-      soundTimer = setTimeout(() => {
-        if (audioUnlocked) {
-          sound.currentTime = 0;
-          sound.play().catch(() => {});
-        }
-      }, 2000);
+    count = d.value;
+    maxValue = d.max_value ?? 10;
+
+    document.getElementById("count").innerText = count;
+    document.getElementById("maxValue").innerText = maxValue;
+
+    checkLimit();
+
+    if (d.last_delta !== null) {
+      addLog(d.last_delta, d.last_color);
     }
-  )
-  .subscribe(setSync);
+  })
+  .subscribe();
 
+load();
 </script>
+
 </body>
 </html>
