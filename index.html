@@ -11,13 +11,18 @@
         height: 20vh;
         width: 100vw;
         font-family: sans-serif;
-
         display: grid;
         grid-template-rows: auto 1fr auto;
         overflow: hidden;
+        background: #111;
+        color: white;
+        transition: background 0.3s;
       }
 
-      /* SYNC STATUS */
+      body.limitReached {
+        background: #b71c1c;
+      }
+
       #syncStatus {
         position: absolute;
         top: 2vh;
@@ -35,7 +40,6 @@
         background: gray;
       }
 
-      /* LAST UPDATE */
       #lastUpdate {
         position: absolute;
         top: 6vh;
@@ -44,12 +48,10 @@
         opacity: 0.7;
       }
 
-      /* REFRESH BUTTON */
       #refreshBtn {
         position: absolute;
         top: 10vh;
         left: 2vw;
-
         font-size: clamp(30px, 20vw, 30px);
         padding: 0.5vh 1vw;
         border: none;
@@ -59,13 +61,46 @@
         color: white;
       }
 
-      /* ❗ DISABLED STYLE */
       #refreshBtn:disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
 
-      /* COUNTER */
+      #maxContainer {
+        position: absolute;
+        top: 2vh;
+        right: 2vw;
+        text-align: center;
+      }
+
+      #maxLabel {
+        font-size: clamp(12px, 1.5vw, 18px);
+        opacity: 0.8;
+      }
+
+      #maxValue {
+        font-size: clamp(20px, 3vw, 30px);
+        margin: 0.5vh 0;
+      }
+
+      #maxButtons button {
+        font-size: 14px;
+        padding: 0.3vh 0.8vw;
+        margin: 0 2px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        color: white;
+      }
+
+      #maxPlus {
+        background: #4caf50;
+      }
+
+      #maxMinus {
+        background: #f44336;
+      }
+
       #count {
         display: flex;
         align-items: center;
@@ -73,11 +108,9 @@
         font-size: clamp(150px, 100vmin, 200px);
       }
 
-      /* BUTTONS */
       #buttons {
         display: flex;
         justify-content: center;
-        gap: 0vw;
         padding-bottom: 80vh;
       }
 
@@ -102,22 +135,27 @@
   </head>
 
   <body>
-    <!-- SYNC STATUS -->
     <div id="syncStatus">
       <div id="dot"></div>
       <span id="syncText">connecting...</span>
     </div>
 
-    <!-- LAST UPDATE -->
     <div id="lastUpdate">letztes update: nie</div>
 
-    <!-- REFRESH BUTTON -->
     <button id="refreshBtn">↻ aktualisieren</button>
 
-    <!-- COUNTER -->
+    <!-- MAX -->
+    <div id="maxContainer">
+      <div id="maxLabel">Maximal</div>
+      <div id="maxValue">10</div>
+      <div id="maxButtons">
+        <button id="maxPlus">+</button>
+        <button id="maxMinus">-</button>
+      </div>
+    </div>
+
     <h1 id="count">0</h1>
 
-    <!-- BUTTONS -->
     <div id="buttons">
       <button id="plus">+</button>
       <button id="minus">-</button>
@@ -128,172 +166,91 @@
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-      const supabaseUrl = "https://ollmmbnptcpktgtltzzz.supabase.co";
-      const supabaseKey = "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1";
-
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      const supabase = createClient(
+        "https://ollmmbnptcpktgtltzzz.supabase.co",
+        "sb_publishable_7E3Ai7_08sGkXhwhm85USw_Ikf5taX1"
+      );
 
       let count = 0;
-      let audioUnlocked = false;
-      let soundTimer = null;
-      let lastValue = null;
-      let lastUpdateTime = null;
+      let maxValue = 10;
 
       const countEl = document.getElementById("count");
-      const sound = document.getElementById("sound");
-      const dot = document.getElementById("dot");
-      const syncText = document.getElementById("syncText");
-      const lastUpdateEl = document.getElementById("lastUpdate");
+      const maxEl = document.getElementById("maxValue");
 
-      function setSync(status) {
-        if (status === "online") {
-          dot.style.background = "#4CAF50";
-          syncText.innerText = "verbunden";
-        } else if (status === "offline") {
-          dot.style.background = "#f44336";
-          syncText.innerText = "offline";
-        } else {
-          dot.style.background = "gray";
-          syncText.innerText = "Verbindung wird hergestellt...";
-        }
-      }
-
-      function updateLastUpdateDisplay() {
-        if (!lastUpdateTime) {
-          lastUpdateEl.innerText = "letztes update: nie";
-          return;
-        }
-
-        const now = Date.now();
-        const diff = Math.floor((now - lastUpdateTime) / 1000);
-
-        if (diff < 5) {
-          lastUpdateEl.innerText = "letztes update: gerade eben";
-        } else if (diff < 60) {
-          lastUpdateEl.innerText = `letztes update: vor ${diff}s`;
-        } else {
-          const date = new Date(lastUpdateTime);
-          lastUpdateEl.innerText =
-            "letztes update: " +
-            date.toLocaleTimeString("de-DE", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            });
-        }
+      function checkLimit() {
+        document.body.classList.toggle("limitReached", count >= maxValue);
       }
 
       async function load() {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("counter")
-          .select("value")
+          .select("value, max_value")
           .eq("id", 1)
           .single();
 
-        if (error) return console.error(error);
-
         count = data.value;
-        countEl.innerText = count;
+        maxValue = data.max_value ?? 10;
 
-        lastUpdateTime = Date.now();
-        updateLastUpdateDisplay();
+        countEl.innerText = count;
+        maxEl.innerText = maxValue;
+
+        checkLimit();
       }
 
       async function updateCounter(delta) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("counter")
           .select("value")
           .eq("id", 1)
           .single();
-
-        if (error) return console.error(error);
-
-        const newValue = data.value + delta;
 
         await supabase
           .from("counter")
-          .update({ value: newValue })
+          .update({ value: data.value + delta })
           .eq("id", 1);
       }
 
-      async function refresh() {
-        const { data, error } = await supabase
+      async function updateMax(delta) {
+        const { data } = await supabase
           .from("counter")
-          .select("value")
+          .select("max_value")
           .eq("id", 1)
           .single();
 
-        if (error) return console.error(error);
+        let newMax = (data.max_value ?? 10) + delta;
+        if (newMax < 0) newMax = 0;
 
-        count = data.value;
-        countEl.innerText = count;
-
-        lastUpdateTime = Date.now();
-        updateLastUpdateDisplay();
+        await supabase
+          .from("counter")
+          .update({ max_value: newMax })
+          .eq("id", 1);
       }
 
-      document.getElementById("plus").addEventListener("click", () => {
-        audioUnlocked = true;
-        updateCounter(1);
-      });
+      document.getElementById("plus").onclick = () => updateCounter(1);
+      document.getElementById("minus").onclick = () => updateCounter(-1);
 
-      document.getElementById("minus").addEventListener("click", () => {
-        audioUnlocked = true;
-        updateCounter(-1);
-      });
+      document.getElementById("maxPlus").onclick = () => updateMax(1);
+      document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
-      /* ✅ FIX: 5 Sekunden Disable */
-      document.getElementById("refreshBtn").addEventListener("click", async (e) => {
-        const btn = e.target;
-
-        btn.disabled = true;
-
-        await refresh();
-
-        setTimeout(() => {
-          btn.disabled = false;
-        }, 5000);
-      });
-
+      /* 🔄 REALTIME SYNC */
       supabase
         .channel("counter-live")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "counter" },
-          async () => {
-            const { data } = await supabase
-              .from("counter")
-              .select("value")
-              .eq("id", 1)
-              .single();
+          (payload) => {
+            const data = payload.new;
 
-            const newValue = data.value;
+            count = data.value;
+            maxValue = data.max_value ?? 10;
 
-            count = newValue;
             countEl.innerText = count;
+            maxEl.innerText = maxValue;
 
-            lastUpdateTime = Date.now();
-            updateLastUpdateDisplay();
-
-            if (newValue === lastValue) return;
-            lastValue = newValue;
-
-            clearTimeout(soundTimer);
-
-            soundTimer = setTimeout(() => {
-              if (audioUnlocked) {
-                sound.play().catch(() => {});
-              }
-            }, 2000);
+            checkLimit();
           }
         )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") setSync("online");
-          else if (status === "CLOSED") setSync("offline");
-          else setSync("connecting");
-        });
-
-      setInterval(updateLastUpdateDisplay, 1000);
+        .subscribe();
 
       load();
     </script>
