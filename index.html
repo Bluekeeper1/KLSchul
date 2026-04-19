@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Supabase Live Counter</title>
 
 <style>
@@ -12,22 +12,102 @@ body {
   background: #111;
   color: white;
   overflow: hidden;
+  transition: background 0.3s;
 }
+
+body.limitReached {
+  background: #b71c1c;
+}
+
+/* SYNC */
+#syncStatus {
+  position: absolute;
+  top: 2vh;
+  left: 2vw;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(14px, 2vw, 24px);
+}
+
+#dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: gray;
+}
+
+/* LAST UPDATE */
+#lastUpdate {
+  position: absolute;
+  top: 6vh;
+  left: 2vw;
+  font-size: clamp(12px, 1.5vw, 18px);
+  opacity: 0.7;
+}
+
+/* REFRESH */
+#refreshBtn {
+  position: absolute;
+  top: 10vh;
+  left: 2vw;
+  padding: 2vh 2vw;
+  border: none;
+  border-radius: 100px;
+  cursor: pointer;
+  background: #2196f3;
+  color: white;
+}
+
+#refreshBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* TOP RIGHT PANEL */
+#maxContainer {
+  position: absolute;
+  top: 2vh;
+  right: 2vw;
+  background: rgba(30,30,30,0.8);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 1vh 1vw;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+#maxValue {
+  font-size: 30px;
+  margin: 5px 0;
+}
+
+#maxButtons button {
+  margin: 2px;
+  border: none;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: white;
+  border-radius: 6px;
+}
+
+#maxPlus { background: #4caf50; }
+#maxMinus { background: #f44336; }
 
 /* COUNTER */
 #count {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 60vh;
+  height: 65vh;
   font-size: clamp(150px, 100vmin, 200px);
 }
 
-/* INFO TEXT */
-#info {
+/* INFO TEXT (NEU) */
+#actionInfo {
   text-align: center;
-  font-size: 20px;
   margin-top: -40px;
+  font-size: 20px;
   opacity: 0.8;
 }
 
@@ -38,7 +118,7 @@ body {
   gap: 20px;
 }
 
-button.main {
+button {
   font-size: 40px;
   padding: 10px 60px;
   border: none;
@@ -50,7 +130,7 @@ button.main {
 #plus { background: #4caf50; }
 #minus { background: #f44336; }
 
-/* COLOR PICKER */
+/* COLOR PICKER (NEU) */
 #colorPicker {
   position: absolute;
   bottom: 2vh;
@@ -73,7 +153,6 @@ button.main {
   transform: scale(1.2);
 }
 
-/* COLORS */
 .c1 { background: #2196f3; }
 .c2 { background: #4caf50; }
 .c3 { background: #f44336; }
@@ -86,14 +165,41 @@ button.main {
 
 <body>
 
-<div id="count">0</div>
-<div id="info">keine Änderung</div>
-
-<div id="buttons">
-  <button id="plus" class="main">+</button>
-  <button id="minus" class="main">-</button>
+<!-- SYNC -->
+<div id="syncStatus">
+  <div id="dot"></div>
+  <span id="syncText">connecting...</span>
 </div>
 
+<!-- LAST UPDATE -->
+<div id="lastUpdate">letztes update: nie</div>
+
+<!-- REFRESH -->
+<button id="refreshBtn">↻</button>
+
+<!-- MAX -->
+<div id="maxContainer">
+  <div>Maximal</div>
+  <div id="maxValue">10</div>
+  <div id="maxButtons">
+    <button id="maxPlus">+</button>
+    <button id="maxMinus">-</button>
+  </div>
+</div>
+
+<!-- COUNTER -->
+<div id="count">0</div>
+
+<!-- ACTION INFO (NEU) -->
+<div id="actionInfo">keine Änderung</div>
+
+<!-- BUTTONS -->
+<div id="buttons">
+  <button id="plus">+</button>
+  <button id="minus">-</button>
+</div>
+
+<!-- COLOR PICKER (NEU) -->
 <div id="colorPicker">
   <div class="colorBtn c1" data-color="Blau"></div>
   <div class="colorBtn c2" data-color="Grün"></div>
@@ -102,6 +208,8 @@ button.main {
   <div class="colorBtn c5" data-color="Lila"></div>
   <div class="colorBtn c6" data-color="Türkis"></div>
 </div>
+
+<audio id="sound" src="click.mp3"></audio>
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
@@ -112,89 +220,91 @@ const supabase = createClient(
 );
 
 let count = 0;
+let maxValue = 10;
+let lastValue = null;
+let lastUpdateTime = null;
+let soundTimer = null;
+let audioUnlocked = false;
+
+/* COLOR (NEU) */
 let selectedColor = localStorage.getItem("color") || "Blau";
 
-const countEl = document.getElementById("count");
-const infoEl = document.getElementById("info");
+const actionInfo = document.getElementById("actionInfo");
 
-/* COLOR PICKER */
-const buttons = document.querySelectorAll(".colorBtn");
-
-buttons.forEach(btn => {
-  if (btn.dataset.color === selectedColor) {
-    btn.classList.add("active");
-  }
+document.querySelectorAll(".colorBtn").forEach(btn => {
+  if (btn.dataset.color === selectedColor) btn.classList.add("active");
 
   btn.onclick = () => {
     selectedColor = btn.dataset.color;
     localStorage.setItem("color", selectedColor);
 
-    buttons.forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".colorBtn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
   };
 });
 
-/* LOAD */
-async function load() {
-  const { data } = await supabase
-    .from("counter")
-    .select("value, last_color")
-    .eq("id", 1)
-    .single();
+/* ORIGINAL CODE bleibt gleich bis UPDATE */
 
-  count = data.value;
-  countEl.innerText = count;
-
-  if (data.last_color) {
-    infoEl.innerText = data.last_color;
-  }
-}
-
-/* UPDATE */
+/* UPDATE COUNTER (ERWEITERT) */
 async function updateCounter(delta) {
+  audioUnlocked = true;
+
   const { data } = await supabase
     .from("counter")
     .select("value")
     .eq("id", 1)
     .single();
 
-  const newValue = data.value + delta;
-
   const text = `${delta > 0 ? "+" : ""}${delta} von ${selectedColor}`;
 
   await supabase
     .from("counter")
     .update({
-      value: newValue,
-      last_color: text
+      value: data.value + delta,
+      last_action: text
     })
     .eq("id", 1);
 }
 
-/* BUTTONS */
-document.getElementById("plus").onclick = () => updateCounter(1);
-document.getElementById("minus").onclick = () => updateCounter(-1);
-
-/* REALTIME */
+/* REALTIME ERWEITERT */
 supabase
-  .channel("live")
-  .on("postgres_changes",
+  .channel("counter-live")
+  .on(
+    "postgres_changes",
     { event: "*", schema: "public", table: "counter" },
     (payload) => {
       const data = payload.new;
 
       count = data.value;
-      countEl.innerText = count;
+      maxValue = data.max_value ?? 10;
 
-      if (data.last_color) {
-        infoEl.innerText = data.last_color;
+      countEl.innerText = count;
+      maxEl.innerText = maxValue;
+
+      if (data.last_action) {
+        actionInfo.innerText = data.last_action;
       }
+
+      lastUpdateTime = Date.now();
+
+      checkLimit();
+      updateLastUpdate();
+
+      if (count === lastValue) return;
+      lastValue = count;
+
+      clearTimeout(soundTimer);
+
+      soundTimer = setTimeout(() => {
+        if (audioUnlocked) {
+          sound.currentTime = 0;
+          sound.play().catch(() => {});
+        }
+      }, 2000);
     }
   )
-  .subscribe();
+  .subscribe(setSync);
 
-load();
 </script>
-
 </body>
 </html>
