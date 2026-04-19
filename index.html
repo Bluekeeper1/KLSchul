@@ -8,14 +8,10 @@
     <style>
       body {
         margin: 0;
-        height: 20vh;
-        width: 100vw;
         font-family: sans-serif;
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        overflow: hidden;
         background: #111;
         color: white;
+        overflow: hidden;
         transition: background 0.3s;
       }
 
@@ -28,10 +24,10 @@
         position: absolute;
         top: 2vh;
         left: 2vw;
-        font-size: clamp(14px, 2vw, 24px);
         display: flex;
         align-items: center;
-        gap: 1vw;
+        gap: 10px;
+        font-size: clamp(14px, 2vw, 24px);
       }
 
       #dot {
@@ -55,7 +51,6 @@
         position: absolute;
         top: 10vh;
         left: 2vw;
-        font-size: clamp(30px, 20vw, 30px);
         padding: 0.5vh 1vw;
         border: none;
         border-radius: 10px;
@@ -69,55 +64,43 @@
         cursor: not-allowed;
       }
 
-      /* 🟦 TOP RIGHT PANEL (NEU) */
+      /* TOP RIGHT PANEL */
       #maxContainer {
         position: absolute;
         top: 2vh;
         right: 2vw;
-
-        background: rgba(0, 173, 185, 0.411);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgb(0, 153, 255);
+        border: 1px solid rgba(255,255,255,0.15);
         border-radius: 12px;
         padding: 1vh 1vw;
         text-align: center;
         backdrop-filter: blur(6px);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-      }
-
-      #maxLabel {
-        font-size: clamp(12px, 1.2vw, 16px);
-        opacity: 0.8;
-        margin-bottom: 0.5vh;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
       }
 
       #maxValue {
-        font-size: clamp(20px, 2.5vw, 28px);
-        margin: 0.5vh 0;
+        font-size: 24px;
+        margin: 5px 0;
       }
 
       #maxButtons button {
-        font-size: 50px;
-        padding: 0.3vh 0.8vw;
-        margin: 0 2px;
+        margin: 2px;
         border: none;
-        border-radius: 6px;
+        padding: 4px 10px;
         cursor: pointer;
         color: white;
+        border-radius: 6px;
       }
 
-      #maxPlus {
-        background: #4caf50;
-      }
-
-      #maxMinus {
-        background: #f44336;
-      }
+      #maxPlus { background: #4caf50; }
+      #maxMinus { background: #f44336; }
 
       /* COUNTER */
       #count {
         display: flex;
-        align-items: center;
         justify-content: center;
+        align-items: center;
+        height: 70vh;
         font-size: clamp(150px, 100vmin, 200px);
       }
 
@@ -125,42 +108,40 @@
       #buttons {
         display: flex;
         justify-content: center;
-        padding-bottom: 80vh;
+        gap: 20px;
       }
 
       button {
-        font-size: clamp(100px, 1vmin, 4px);
-        padding: 1vh 10vw;
-        color: white;
+        font-size: 40px;
+        padding: 10px 60px;
         border: none;
         border-radius: 20px;
         cursor: pointer;
-        max-width: 50vw;
+        color: white;
       }
 
-      #plus {
-        background: #4caf50;
-      }
-
-      #minus {
-        background: #f44336;
-      }
+      #plus { background: #4caf50; }
+      #minus { background: #f44336; }
     </style>
   </head>
 
   <body>
+
     <!-- SYNC -->
     <div id="syncStatus">
       <div id="dot"></div>
-      <span id="syncText">Verbindung wird hergestellt...</span>
+      <span id="syncText">connecting...</span>
     </div>
 
+    <!-- LAST UPDATE -->
     <div id="lastUpdate">letztes update: nie</div>
+
+    <!-- REFRESH -->
     <button id="refreshBtn">↻ aktualisieren</button>
 
-    <!-- TOP RIGHT PANEL -->
+    <!-- MAX -->
     <div id="maxContainer">
-      <div id="maxLabel">Maximal</div>
+      <div>Maximal</div>
       <div id="maxValue">10</div>
       <div id="maxButtons">
         <button id="maxPlus">+</button>
@@ -169,13 +150,15 @@
     </div>
 
     <!-- COUNTER -->
-    <h1 id="count">0</h1>
+    <div id="count">0</div>
 
     <!-- BUTTONS -->
     <div id="buttons">
       <button id="plus">+</button>
       <button id="minus">-</button>
     </div>
+
+    <audio id="sound" src="click.mp3"></audio>
 
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
@@ -188,13 +171,57 @@
       let count = 0;
       let maxValue = 10;
 
+      let lastValue = null;
+      let lastUpdateTime = null;
+      let soundTimer = null;
+      let audioUnlocked = false;
+
       const countEl = document.getElementById("count");
       const maxEl = document.getElementById("maxValue");
+      const dot = document.getElementById("dot");
+      const syncText = document.getElementById("syncText");
+      const lastUpdateEl = document.getElementById("lastUpdate");
+      const sound = document.getElementById("sound");
+
+      /* SYNC */
+      function setSync(status) {
+        if (status === "online") {
+          dot.style.background = "#4CAF50";
+          syncText.innerText = "verbunden";
+        } else if (status === "offline") {
+          dot.style.background = "#f44336";
+          syncText.innerText = "offline";
+        } else {
+          dot.style.background = "gray";
+          syncText.innerText = "connecting...";
+        }
+      }
+
+      /* LAST UPDATE */
+      function updateLastUpdate() {
+        if (!lastUpdateTime) {
+          lastUpdateEl.innerText = "letztes update: nie";
+          return;
+        }
+
+        const diff = Math.floor((Date.now() - lastUpdateTime) / 1000);
+
+        if (diff < 5) {
+          lastUpdateEl.innerText = "letztes update: gerade eben";
+        } else if (diff < 60) {
+          lastUpdateEl.innerText = `letztes update: vor ${diff}s`;
+        } else {
+          lastUpdateEl.innerText =
+            "letztes update: " +
+            new Date(lastUpdateTime).toLocaleTimeString("de-DE");
+        }
+      }
 
       function checkLimit() {
         document.body.classList.toggle("limitReached", count >= maxValue);
       }
 
+      /* LOAD */
       async function load() {
         const { data } = await supabase
           .from("counter")
@@ -208,10 +235,37 @@
         countEl.innerText = count;
         maxEl.innerText = maxValue;
 
+        lastValue = count;
+        lastUpdateTime = Date.now();
+
         checkLimit();
+        updateLastUpdate();
       }
 
+      /* REFRESH (FIXED) */
+      async function refresh() {
+        const { data } = await supabase
+          .from("counter")
+          .select("value, max_value")
+          .eq("id", 1)
+          .single();
+
+        count = data.value;
+        maxValue = data.max_value ?? 10;
+
+        countEl.innerText = count;
+        maxEl.innerText = maxValue;
+
+        lastUpdateTime = Date.now();
+
+        checkLimit();
+        updateLastUpdate();
+      }
+
+      /* COUNTER UPDATE */
       async function updateCounter(delta) {
+        audioUnlocked = true;
+
         const { data } = await supabase
           .from("counter")
           .select("value")
@@ -224,6 +278,7 @@
           .eq("id", 1);
       }
 
+      /* MAX UPDATE */
       async function updateMax(delta) {
         const { data } = await supabase
           .from("counter")
@@ -240,11 +295,24 @@
           .eq("id", 1);
       }
 
+      /* BUTTONS */
       document.getElementById("plus").onclick = () => updateCounter(1);
       document.getElementById("minus").onclick = () => updateCounter(-1);
       document.getElementById("maxPlus").onclick = () => updateMax(1);
       document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
+      document.getElementById("refreshBtn").onclick = async (e) => {
+        const btn = e.target;
+        btn.disabled = true;
+
+        await refresh();
+
+        setTimeout(() => {
+          btn.disabled = false;
+        }, 5000);
+      };
+
+      /* REALTIME */
       supabase
         .channel("counter-live")
         .on(
@@ -259,10 +327,34 @@
             countEl.innerText = count;
             maxEl.innerText = maxValue;
 
+            lastUpdateTime = Date.now();
+
             checkLimit();
+            updateLastUpdate();
+
+            /* SOUND */
+            if (count === lastValue) return;
+            lastValue = count;
+
+            clearTimeout(soundTimer);
+
+            soundTimer = setTimeout(() => {
+              if (audioUnlocked) {
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+              }
+            }, 2000);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setSync("online");
+          else if (status === "CLOSED") setSync("offline");
+          else setSync("connecting");
+        });
+
+      setInterval(updateLastUpdate, 1000);
+
+      load();
     </script>
   </body>
 </html>
