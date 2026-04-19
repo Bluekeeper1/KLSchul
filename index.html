@@ -66,11 +66,15 @@
         cursor: not-allowed;
       }
 
+      /* 🟡 MAX CONTAINER (20% größer) */
       #maxContainer {
         position: absolute;
         top: 2vh;
         right: 2vw;
         text-align: center;
+
+        transform: scale(1.2);
+        transform-origin: top right;
       }
 
       #maxLabel {
@@ -79,12 +83,12 @@
       }
 
       #maxValue {
-        font-size: clamp(20px, 3vw, 30px);
+        font-size: clamp(50px, 3vw, 30px);
         margin: 0.5vh 0;
       }
 
       #maxButtons button {
-        font-size: 14px;
+        font-size: 50px;
         padding: 0.3vh 0.8vw;
         margin: 0 2px;
         border: none;
@@ -161,8 +165,6 @@
       <button id="minus">-</button>
     </div>
 
-    <audio id="sound" src="click.mp3"></audio>
-
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -214,8 +216,6 @@
         countEl.innerText = count;
         maxEl.innerText = maxValue;
 
-        lastValue = count;
-
         checkLimit();
       }
 
@@ -255,7 +255,6 @@
       document.getElementById("maxPlus").onclick = () => updateMax(1);
       document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
-      /* 🔄 REALTIME + SOUND */
       supabase
         .channel("counter-live")
         .on(
@@ -264,9 +263,7 @@
           (payload) => {
             const data = payload.new;
 
-            const newValue = data.value;
-
-            count = newValue;
+            count = data.value;
             maxValue = data.max_value ?? 10;
 
             countEl.innerText = count;
@@ -274,9 +271,8 @@
 
             checkLimit();
 
-            /* 🔊 SOUND LOGIC */
-            if (newValue === lastValue) return;
-            lastValue = newValue;
+            if (data.value === lastValue) return;
+            lastValue = data.value;
 
             clearTimeout(soundTimer);
 
@@ -288,11 +284,7 @@
             }, 2000);
           }
         )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") setSync("online");
-          else if (status === "CLOSED") setSync("offline");
-          else setSync("connecting");
-        });
+        .subscribe(setSync);
 
       load();
     </script>
