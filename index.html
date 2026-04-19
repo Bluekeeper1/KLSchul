@@ -135,7 +135,7 @@
   </head>
 
   <body>
-    <!-- SYNC STATUS -->
+    <!-- SYNC -->
     <div id="syncStatus">
       <div id="dot"></div>
       <span id="syncText">Verbindung wird hergestellt...</span>
@@ -161,6 +161,8 @@
       <button id="minus">-</button>
     </div>
 
+    <audio id="sound" src="click.mp3"></audio>
+
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -172,8 +174,13 @@
       let count = 0;
       let maxValue = 10;
 
+      let lastValue = null;
+      let soundTimer = null;
+      let audioUnlocked = false;
+
       const countEl = document.getElementById("count");
       const maxEl = document.getElementById("maxValue");
+      const sound = document.getElementById("sound");
       const dot = document.getElementById("dot");
       const syncText = document.getElementById("syncText");
 
@@ -207,10 +214,14 @@
         countEl.innerText = count;
         maxEl.innerText = maxValue;
 
+        lastValue = count;
+
         checkLimit();
       }
 
       async function updateCounter(delta) {
+        audioUnlocked = true;
+
         const { data } = await supabase
           .from("counter")
           .select("value")
@@ -244,7 +255,7 @@
       document.getElementById("maxPlus").onclick = () => updateMax(1);
       document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
-      /* 🔄 REALTIME + STATUS */
+      /* 🔄 REALTIME + SOUND */
       supabase
         .channel("counter-live")
         .on(
@@ -253,13 +264,28 @@
           (payload) => {
             const data = payload.new;
 
-            count = data.value;
+            const newValue = data.value;
+
+            count = newValue;
             maxValue = data.max_value ?? 10;
 
             countEl.innerText = count;
             maxEl.innerText = maxValue;
 
             checkLimit();
+
+            /* 🔊 SOUND LOGIC */
+            if (newValue === lastValue) return;
+            lastValue = newValue;
+
+            clearTimeout(soundTimer);
+
+            soundTimer = setTimeout(() => {
+              if (audioUnlocked) {
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+              }
+            }, 2000);
           }
         )
         .subscribe((status) => {
