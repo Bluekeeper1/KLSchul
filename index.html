@@ -135,13 +135,13 @@
   </head>
 
   <body>
+    <!-- SYNC STATUS -->
     <div id="syncStatus">
       <div id="dot"></div>
-      <span id="syncText">connecting...</span>
+      <span id="syncText">Verbindung wird hergestellt...</span>
     </div>
 
     <div id="lastUpdate">letztes update: nie</div>
-
     <button id="refreshBtn">↻ aktualisieren</button>
 
     <!-- MAX -->
@@ -161,8 +161,6 @@
       <button id="minus">-</button>
     </div>
 
-    <audio id="sound" src="click.mp3"></audio>
-
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -176,6 +174,21 @@
 
       const countEl = document.getElementById("count");
       const maxEl = document.getElementById("maxValue");
+      const dot = document.getElementById("dot");
+      const syncText = document.getElementById("syncText");
+
+      function setSync(status) {
+        if (status === "online") {
+          dot.style.background = "#4CAF50";
+          syncText.innerText = "verbunden";
+        } else if (status === "offline") {
+          dot.style.background = "#f44336";
+          syncText.innerText = "offline";
+        } else {
+          dot.style.background = "gray";
+          syncText.innerText = "Verbindung wird hergestellt...";
+        }
+      }
 
       function checkLimit() {
         document.body.classList.toggle("limitReached", count >= maxValue);
@@ -228,11 +241,10 @@
 
       document.getElementById("plus").onclick = () => updateCounter(1);
       document.getElementById("minus").onclick = () => updateCounter(-1);
-
       document.getElementById("maxPlus").onclick = () => updateMax(1);
       document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
-      /* 🔄 REALTIME SYNC */
+      /* 🔄 REALTIME + STATUS */
       supabase
         .channel("counter-live")
         .on(
@@ -250,7 +262,11 @@
             checkLimit();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setSync("online");
+          else if (status === "CLOSED") setSync("offline");
+          else setSync("connecting");
+        });
 
       load();
     </script>
