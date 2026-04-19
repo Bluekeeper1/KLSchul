@@ -15,32 +15,33 @@ body {
   position: relative;
 }
 
-/* ================= BACKGROUND ================= */
-#topBar, #bottomBar {
+/* ================= TOP COLOR BAR ================= */
+#topBar {
   position: fixed;
-  left: 0;
+  top: 0;
+  right: 0px;
   width: 100%;
-  height: 15vh;
+  height: 12vh;
   z-index: -3;
   pointer-events: none;
-  transition: background 0.5s ease;
+  transition: background 0.3s ease;
 }
 
-#topBar { top: 0; }
-#bottomBar { bottom: 0; }
-
-/* ================= LIMIT ================= */
+/* ================= LIMIT OVERLAY ================= */
 #limitOverlay {
   position: fixed;
-  inset: 0;
-  background: rgba(183,28,28,0);
-  z-index: -2;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(183, 28, 28, 0);
+  z-index: -5;
   pointer-events: none;
-  transition: 0.3s;
+  transition: background 0.3s ease;
 }
 
 body.limitReached #limitOverlay {
-  background: rgba(183,28,28,0.35);
+  background: rgba(183, 28, 28, 0.45);
 }
 
 /* ================= SYNC ================= */
@@ -96,7 +97,9 @@ body.limitReached #limitOverlay {
   text-align: center;
 }
 
-#maxValue { font-size: 30px; }
+#maxValue {
+  font-size: 30px;
+}
 
 #maxButtons button {
   margin: 1px;
@@ -138,7 +141,7 @@ button {
 #plus { background: #4caf50; }
 #minus { background: #f44336; }
 
-/* ================= COLOR PICKER ================= */
+/* ================= COLORS ================= */
 #colorPicker {
   position: fixed;
   bottom: 1vh;
@@ -146,7 +149,6 @@ button {
   transform: translateX(-50%);
   display: flex;
   gap: 12px;
-  z-index: 10;
 }
 
 .colorDot {
@@ -159,17 +161,18 @@ button {
 }
 
 .colorDot.active {
-  transform: scale(1.3);
+  transform: scale(1.25);
   box-shadow: 0 0 10px white;
 }
 
-/* ================= LOG ================= */
+/* ================= LOG (RIGHT NEXT TO NUMBER) ================= */
 #log {
   position: absolute;
-  top: 2vh;
-  right: 2vw;
-  width: 280px;
-  font-size: 14px;
+  top: 50%;
+  right: 10vw;
+  transform: translateY(-50%);
+  width: 30px;
+  font-size: 10px;
 }
 
 .logEntry {
@@ -190,7 +193,6 @@ button {
 <body>
 
 <div id="topBar"></div>
-<div id="bottomBar"></div>
 <div id="limitOverlay"></div>
 
 <!-- SYNC -->
@@ -248,17 +250,16 @@ const supabase = createClient(
 let count = 0;
 let maxValue = 10;
 let localColor = localStorage.getItem("color") || "#111";
+let lastEventTime = Date.now();
 
-/* ================= BACKGROUND ================= */
+/* ================= COLOR BAR ================= */
 const topBar = document.getElementById("topBar");
-const bottomBar = document.getElementById("bottomBar");
 
 function applyColor(c) {
-  topBar.style.background = `linear-gradient(to bottom, ${c}, transparent)`;
-  bottomBar.style.background = `linear-gradient(to top, ${c}, transparent)`;
+  topBar.style.background = c;
 }
 
-/* ================= COLOR ================= */
+/* ================= COLOR PICKER ================= */
 const dots = document.querySelectorAll(".colorDot");
 
 function setActive(c) {
@@ -306,6 +307,23 @@ function addLog(delta, color) {
   }
 }
 
+/* ================= SYNC ================= */
+function setSync(state) {
+  const dot = document.getElementById("dot");
+  const text = document.getElementById("syncText");
+
+  if (state === "online") {
+    dot.style.background = "#4CAF50";
+    text.textContent = "online";
+  } else if (state === "offline") {
+    dot.style.background = "#f44336";
+    text.textContent = "offline";
+  } else {
+    dot.style.background = "gray";
+    text.textContent = "connecting...";
+  }
+}
+
 /* ================= LOAD ================= */
 async function load() {
   const { data } = await supabase
@@ -332,19 +350,17 @@ async function update(delta) {
     .eq("id", 1)
     .single();
 
-  const newValue = data.value + delta;
-
   await supabase
     .from("counter")
     .update({
-      value: newValue,
+      value: data.value + delta,
       last_delta: delta,
       last_color: localColor
     })
     .eq("id", 1);
 }
 
-/* ================= MAX ================= */
+/* ================= MAX (FIXED) ================= */
 async function updateMax(delta) {
 
   const { data } = await supabase
@@ -353,13 +369,18 @@ async function updateMax(delta) {
     .eq("id", 1)
     .single();
 
-  let m = (data.max_value ?? 10) + delta;
-  if (m < 0) m = 0;
+  let newMax = (data.max_value ?? 10) + delta;
+  if (newMax < 0) newMax = 0;
 
   await supabase
     .from("counter")
-    .update({ max_value: m })
+    .update({ max_value: newMax })
     .eq("id", 1);
+
+  maxValue = newMax;
+  document.getElementById("maxValue").innerText = maxValue;
+
+  checkLimit();
 }
 
 /* ================= BUTTONS ================= */
@@ -373,6 +394,9 @@ document.getElementById("maxMinus").onclick = () => updateMax(-1);
 supabase.channel("counter-live")
   .on("postgres_changes", { event: "*", schema: "public", table: "counter" }, payload => {
 
+    lastEventTime = Date.now();
+    setSync("online");
+
     const d = payload.new;
 
     count = d.value;
@@ -383,13 +407,26 @@ supabase.channel("counter-live")
 
     checkLimit();
 
-    if (d.last_delta !== null) {
+    if (d.last_delta !== null && d.last_delta !== 0) {
       addLog(d.last_delta, d.last_color);
     }
   })
-  .subscribe();
+  .subscribe((status) => {
+
+    if (status === "SUBSCRIBED") setSync("online");
+    else if (status === "CLOSED" || status === "TIMED_OUT") setSync("offline");
+    else setSync("connecting");
+  });
+
+/* ================= HEARTBEAT ================= */
+setInterval(() => {
+  if (Date.now() - lastEventTime > 8000) {
+    setSync("offline");
+  }
+}, 2000);
 
 load();
+applyColor(localColor);
 </script>
 
 </body>
