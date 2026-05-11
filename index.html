@@ -96,6 +96,25 @@ body.limitReached #limitOverlay {
   opacity: 0.4;
 }
 
+#openBtn {
+  position: absolute;
+  top: 2vh;
+  left: 50%;
+  transform: translateX(-50%);
+
+  padding: 4vh 4vw;
+  border: none;
+  border-radius: 200px;
+  background: #4caf50;
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+body.closed #openBtn {
+  background: #f44336;
+}
+
 
 /* ================= MAX ================= */
 #maxContainer {
@@ -258,6 +277,7 @@ button {
   aspect-ratio: 1 / 1; /* extra Sicherheit für perfekte Rundheit */
 }
 
+
 </style>
 </head>
 
@@ -266,6 +286,7 @@ button {
 
 <div id="topBar"></div>
 <div id="limitOverlay"></div>
+
 
 <!-- SYNC -->
 <div id="syncStatus">
@@ -276,6 +297,9 @@ button {
 <div id="lastUpdate">letztes update: nie</div>
 
 <button id="refreshBtn">↻</button>
+<button id="openBtn">OFFEN</button>
+
+
 
 <!-- MAX -->
 <div id="maxContainer">
@@ -287,6 +311,7 @@ button {
   </div>
 </div>
 
+
 <!-- LOG -->
 <div id="logContainer">
   <div id="log"></div>
@@ -294,6 +319,7 @@ button {
 
 <!-- COUNTER -->
 <div id="count">0</div>
+
 
 <!-- BUTTONS -->
 <div id="buttons">
@@ -435,16 +461,22 @@ function addLog(delta, color) {
     log.removeChild(log.lastChild);
   }
 }
-// ⬇️ live update
+// ⬇️ live update (Sekunden → ab 60 Minuten)
 setInterval(() => {
   const entries = document.querySelectorAll("#log span");
 
   entries.forEach(el => {
     const time = parseInt(el.dataset.time);
-    const diff = Math.floor((Date.now() - time) / 1000);
+    let diff = Math.floor((Date.now() - time) / 1000);
 
-    const value = el.textContent.split(" ")[0]; // +1 oder -1
-    el.textContent = `${value} (${diff}s)`;
+    const value = el.textContent.split(" ")[0];
+
+    if (diff < 60) {
+      el.textContent = `${value} (${diff}s)`;
+    } else {
+      const min = Math.floor(diff / 60);
+      el.textContent = `${value} (${min}min)`;
+    }
   });
 
 }, 1000);
@@ -482,6 +514,9 @@ async function load() {
   document.getElementById("maxValue").innerText = maxValue;
 
   checkLimit();
+
+isOpen = data.is_open ?? false;
+updateOpenUI();
 }
 
 /* ================= UPDATE ================= */
@@ -494,14 +529,18 @@ async function update(delta) {
     .eq("id", 1)
     .single();
 
-  await supabase
-    .from("counter")
-    .update({
-      value: data.value + delta,
-      last_delta: delta,
-      last_color: localColor
-    })
-    .eq("id", 1);
+ let newValue = data.value + delta;
+
+if (newValue < 0) newValue = 0;
+
+await supabase
+  .from("counter")
+  .update({
+    value: newValue,
+    last_delta: delta,
+    last_color: localColor
+  })
+  .eq("id", 1);
 }
 
 /* ================= MAX (FIXED) ================= */
@@ -534,6 +573,18 @@ document.getElementById("minus").onclick = () => update(-1);
 document.getElementById("maxPlus").onclick = () => updateMax(1);
 document.getElementById("maxMinus").onclick = () => updateMax(-1);
 
+let isOpen = false;
+
+function updateOpenUI() {
+  document.body.classList.toggle("closed", !isOpen);
+  document.getElementById("openBtn").innerText = isOpen ? "OFFEN" : "GESCHLOSSEN";
+}
+document.getElementById("openBtn").onclick = async () => {
+  await supabase
+    .from("counter")
+    .update({ is_open: !isOpen })
+    .eq("id", 1);
+};
 /* ================= REALTIME ================= */
 supabase.channel("counter-live")
   .on("postgres_changes", { event: "*", schema: "public", table: "counter" }, payload => {
@@ -542,6 +593,9 @@ supabase.channel("counter-live")
     setSync("online");
 
     const d = payload.new;
+    
+    isOpen = d.is_open ?? false;
+updateOpenUI();
 
     count = d.value;
     maxValue = d.max_value ?? 10;
@@ -595,6 +649,8 @@ function updateLastUpdateDisplay() {
   }
 }
 setInterval(updateLastUpdateDisplay, 1000);
+
+updateOpenUI();
 /* ================= HEARTBEAT ================= */
 setInterval(() => {
   if (Date.now() - lastEventTime > 8000) {
